@@ -1,184 +1,250 @@
-# Fotos para bodas | NeitorCompany
+<div align="center">
 
-Aplicación web que permite a los invitados de una boda **tomar, compartir, visualizar y guardar fotografías** desde su propio teléfono, con solo escanear un código QR. Sin instalar aplicaciones, sin crear cuentas y sin iniciar sesión.
+<img src="assets/flores-esquina.svg" alt="" width="110">
 
-Las fotografías se guardan en una carpeta de **Google Drive** del organizador a través de **Google Apps Script**, y todos los invitados pueden verlas en una **galería compartida** que se actualiza sola.
+# 📸 Fotos para bodas
 
-> **Estado:** en desarrollo y pruebas. Todavía no está publicada oficialmente ni se ha generado el código QR definitivo.
+### *Cada fotografía guarda un recuerdo.*
 
----
+**Una aplicación web para que los invitados tomen, compartan y guarden las fotos de la boda… con solo escanear un código QR.**
 
-## Tabla de contenido
+<br>
 
-- [Funcionalidades](#funcionalidades)
-- [Tecnologías](#tecnologías)
-- [Arquitectura general](#arquitectura-general)
-- [Estructura de carpetas](#estructura-de-carpetas)
-- [Instalación y ejecución local](#instalación-y-ejecución-local)
-- [Configuración](#configuración)
-- [Seguridad y privacidad](#seguridad-y-privacidad)
-- [Estado del proyecto](#estado-del-proyecto)
-- [Autoría](#autoría)
+![Estado](https://img.shields.io/badge/estado-en%20desarrollo%20y%20pruebas-B99A5B?style=for-the-badge)
+![Hecho por](https://img.shields.io/badge/hecho%20por-NeitorCompany-344C3D?style=for-the-badge)
 
----
+![HTML5](https://img.shields.io/badge/HTML5-344C3D?style=flat-square&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-344C3D?style=flat-square&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-344C3D?style=flat-square&logo=javascript&logoColor=white)
+![Google Apps Script](https://img.shields.io/badge/Google%20Apps%20Script-89967B?style=flat-square&logo=google&logoColor=white)
+![Google Drive](https://img.shields.io/badge/Google%20Drive-89967B?style=flat-square&logo=googledrive&logoColor=white)
+![IndexedDB](https://img.shields.io/badge/IndexedDB-89967B?style=flat-square)
+![Licencia](https://img.shields.io/badge/licencia-todos%20los%20derechos%20reservados-49362B?style=flat-square)
 
-## Funcionalidades
+<br>
 
-| Funcionalidad | Descripción | Estado |
-|---|---|---|
-| Acceso mediante código QR | El QR abrirá directamente la página de la boda; no se necesitan cuentas ni contraseñas. | 🔜 El QR definitivo se generará al publicar la versión oficial |
-| Cámara del dispositivo | Cámara integrada en la página, con cambio entre cámara frontal y trasera. Si el navegador no la permite, se usa la cámara nativa del teléfono. | ✅ Implementada y probada |
-| Selección de imágenes | Elegir fotografías desde la galería del teléfono o la computadora. | ✅ Implementada y probada |
-| Vista previa y confirmación | Antes de compartir, el invitado revisa la foto y confirma con «Sí, compartir fotografía». | ✅ Implementada y probada |
-| Optimización de imágenes | Conversión a JPEG (máx. 2560 px), sin deformar la foto y **sin datos de ubicación (GPS)**. | ✅ Implementada y probada |
-| Subida a Google Drive | Envío mediante Google Apps Script, con confirmación real del guardado, reintentos y prevención de duplicados por reintentos. | ✅ Implementada y probada |
-| Galería compartida | Cuadrícula con las fotos de todos los invitados, miniaturas optimizadas y carga por páginas («Cargar más»). | ✅ Implementada y probada |
-| Actualización automática | La galería consulta fotos nuevas cada 30 s mientras está visible, sin duplicarlas ni interrumpir el visor. Incluye botón «Actualizar galería». | ✅ Implementada y probada |
-| Visor de fotografías | Foto en tamaño grande con navegación «Anterior / Siguiente» y botón atrás del teléfono. | ✅ Implementada y probada |
-| Descarga de fotografías | Botón «Guardar fotografía»: menú compartir en iPhone (Guardar imagen) y descarga JPEG en Android y computadora. Siempre la foto completa. | ✅ Probada en iPhone y computadora · 🔜 Pendiente de verificar en Android |
-| «Mi galería» | Las fotos que el invitado eligió en su teléfono, con su estado («Compartida», «Enviando…», «No enviada»), reintento manual y opción «Limpiar mi galería». **Se conserva al recargar o cerrar la página** (IndexedDB). Es local a cada navegador y dispositivo. | ✅ Implementada y probada en iPhone |
-| Diseño adaptable | Pensado primero para teléfonos; también funciona en tabletas y computadoras. | ✅ Implementado |
+[✨ Funcionalidades](#funcionalidades) ·
+[🧭 Cómo funciona](#como-funciona) ·
+[🏛️ Arquitectura](#arquitectura) ·
+[🗂️ Estructura](#estructura) ·
+[🚀 Ejecución local](#ejecucion-local) ·
+[⚙️ Configuración](#configuracion) ·
+[🗺️ Estado](#estado)
 
-### Decisiones de diseño
-
-- **Sin cuentas ni contraseñas** para los invitados: basta con escanear el QR.
-- **Sin moderación ni aprobación previa**: cuando una foto se comparte correctamente, aparece en la galería para todos.
-- **Sin límite por invitado**: solo hay protecciones técnicas (formato, tamaño por archivo, ritmo de subidas y concurrencia).
+</div>
 
 ---
 
-## Tecnologías
+## 💐 ¿Qué es?
 
-| Tecnología | Uso |
-|---|---|
-| **HTML5** | Estructura de la página. |
-| **CSS3** | Diseño adaptable, animaciones e íconos SVG mediante máscaras. |
-| **JavaScript** (sin frameworks) | Cámara (`getUserMedia`), optimización con `canvas`, comunicación con el servidor (`fetch`), galería y visor. |
-| **IndexedDB** | Persistencia de «Mi galería» en el navegador de cada dispositivo. |
-| **Google Apps Script** | Servidor web: recibe las fotos, las valida y entrega la galería en modo de solo lectura. |
-| **Google Drive** | Almacenamiento privado de las fotografías. |
-| **Git y GitHub** | Control de versiones y publicación del sitio. |
+**Fotos para bodas** convierte a cada invitado en fotógrafo de la boda.
 
-No se usan librerías externas de JavaScript. Las tipografías se cargan desde Google Fonts.
+Sin descargar aplicaciones, sin crear cuentas y sin contraseñas: el invitado **escanea el QR**, toma o elige una foto, confirma que quiere compartirla y en segundos aparece en la **galería compartida**, donde todos pueden verla, ampliarla y guardarla en su teléfono.
+
+Las fotografías se guardan en una carpeta **privada de Google Drive** del organizador, a través de **Google Apps Script**.
+
+> [!NOTE]
+> El proyecto está **en desarrollo y pruebas**. Todavía no tiene versión oficial publicada ni código QR definitivo.
 
 ---
 
-## Arquitectura general
+<a id="funcionalidades"></a>
+
+## ✨ Funcionalidades
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 📷 Para tomar y compartir
+- **Cámara integrada** con cambio entre cámara frontal y trasera, y la cámara nativa como respaldo.
+- **Selección de fotos** desde la galería del teléfono o la computadora.
+- **Vista previa y confirmación** antes de compartir: «Sí, compartir fotografía».
+- **Optimización automática**: JPEG de hasta 2560 px, sin deformar y **sin ubicación GPS**.
+- **Subida segura** con confirmación real del guardado, reintentos y **sin duplicados** por reintentos.
+
+</td>
+<td width="50%" valign="top">
+
+### 🖼️ Para ver y guardar
+- **Galería compartida** con las fotos de todos, miniaturas optimizadas y «Cargar más».
+- **Actualización automática** cada 30 s, sin repetir fotos ni interrumpir a quien está mirando.
+- **Visor** a pantalla completa con «Anterior / Siguiente».
+- **Guardar fotografía**: en iPhone abre el menú compartir y en Android y computadora descarga el JPEG completo.
+- **Mi galería**: las fotos de cada invitado, con su estado, **guardadas en su teléfono** aunque cierre la página.
+
+</td>
+</tr>
+</table>
+
+### ✅ Estado de cada funcionalidad
+
+| | Funcionalidad | Estado |
+|:-:|---|---|
+| 🔳 | Acceso mediante código QR | 🔜 Se generará con la versión oficial |
+| 📷 | Cámara del dispositivo (frontal y trasera) | ✅ Implementada y probada |
+| 🖼️ | Selección de imágenes | ✅ Implementada y probada |
+| 👀 | Vista previa y confirmación | ✅ Implementada y probada |
+| ☁️ | Subida a Google Drive mediante Google Apps Script | ✅ Implementada y probada |
+| 🌸 | Galería compartida | ✅ Implementada y probada |
+| 🔄 | Actualización automática | ✅ Implementada y probada |
+| 🔍 | Visor de fotografías | ✅ Implementado y probado |
+| 💾 | Descarga de fotografías | ✅ Probada en iPhone y computadora · 🔜 falta verificar en Android |
+| 💚 | «Mi galería» persistente (IndexedDB) | ✅ Implementada y probada en iPhone · solo en el dispositivo de cada invitado |
+| 📱 | Diseño adaptable a teléfonos y computadoras | ✅ Implementado |
+
+> [!TIP]
+> **Sencilla a propósito:** sin cuentas para los invitados, sin moderación ni aprobaciones, y sin límite de fotos por persona. Solo hay protecciones técnicas: formato, tamaño por archivo, ritmo de subidas y concurrencia.
+
+---
+
+<a id="como-funciona"></a>
+
+## 🧭 Cómo funciona
+
+| 1️⃣ Escanea | 2️⃣ Captura | 3️⃣ Comparte | 4️⃣ Disfruta |
+|:-:|:-:|:-:|:-:|
+| El invitado escanea el **código QR** y se abre la página de la boda. | Toma una foto con la cámara o la **elige de su galería**. | Revisa la vista previa y pulsa **«Sí, compartir fotografía»**. | La foto aparece en la **galería de todos**, lista para verla y guardarla. |
+
+---
+
+<a id="arquitectura"></a>
+
+## 🏛️ Arquitectura
 
 ```mermaid
 flowchart LR
-    A["📱 Teléfono del invitado<br/>(página web)"] -- "POST: foto JPEG (base64)" --> B["⚙️ Google Apps Script<br/>(aplicación web)"]
-    B -- "guarda el archivo" --> C["🗂️ Google Drive<br/>(carpeta privada)"]
-    A -- "GET: lista, miniaturas, foto" --> B
-    B -- "lee el índice y las fotos" --> C
-    B -- "JSON (sin IDs de Drive)" --> A
+    A["📱 Teléfono del invitado<br/><b>Página web</b>"]
+    B["⚙️ Google Apps Script<br/><b>Servidor</b>"]
+    C["🗂️ Google Drive<br/><b>Carpeta privada</b>"]
+
+    A -- "📤 POST · foto JPEG optimizada" --> B
+    B -- "💾 guarda el original" --> C
+    A -- "📥 GET · lista, miniaturas y foto" --> B
+    B -- "📚 lee el índice y las fotos" --> C
+    B -- "✅ JSON sin IDs de Drive" --> A
+
+    classDef web fill:#FAF6EE,stroke:#B99A5B,stroke-width:2px,color:#344C3D;
+    classDef servidor fill:#344C3D,stroke:#B99A5B,stroke-width:2px,color:#FAF6EE;
+    classDef drive fill:#89967B,stroke:#B99A5B,stroke-width:2px,color:#FAF6EE;
+    class A web;
+    class B servidor;
+    class C drive;
 ```
 
-1. **La página web** (HTML, CSS y JavaScript estáticos) se ejecuta en el navegador del invitado. Optimiza la foto en el propio teléfono y la envía con `fetch` como una petición simple (`text/plain`, sin cookies), compatible con Safari en iPhone.
-2. **Google Apps Script** actúa como servidor. Se ejecuta con la cuenta del organizador, valida cada foto (formato, tamaño y contenido JPEG real), la guarda en Drive y responde un JSON con la confirmación.
-3. **Google Drive** guarda los originales en una carpeta **privada**. Un índice interno permite listar la galería sin recorrer toda la carpeta en cada consulta.
-4. **La galería compartida** pide al servidor la lista de fotos, las miniaturas (en lotes y con caché) y la foto completa solo cuando el invitado la abre. Las imágenes viajan en base64 dentro del JSON: la carpeta nunca se hace pública.
+- **🌐 La página web** (HTML, CSS y JavaScript estáticos) optimiza la foto en el propio teléfono y la envía con `fetch` como una petición simple (`text/plain`, sin cookies), compatible con Safari en iPhone.
+- **⚙️ Google Apps Script** actúa como servidor con la cuenta del organizador. Valida cada foto (formato, tamaño y contenido JPEG real), la guarda en Drive y confirma el guardado con un JSON.
+- **🗂️ Google Drive** guarda los originales en una carpeta **privada**. Un índice interno permite listar la galería sin recorrer toda la carpeta en cada consulta.
+- **🌸 La galería compartida** pide la lista de fotos, las miniaturas (en lotes y con caché) y la foto completa solo cuando alguien la abre. Las imágenes viajan dentro del JSON: **la carpeta nunca se hace pública**.
 
-### Servicios del servidor
+<details>
+<summary><b>📡 Ver los servicios del servidor</b></summary>
 
-| Petición | Uso |
+<br>
+
+| Petición | Para qué sirve |
 |---|---|
-| `GET /exec` | Comprobación de estado del servidor. |
-| `GET /exec?accion=lista` | Lista paginada de fotos (códigos públicos y fechas). |
-| `GET /exec?accion=miniaturas&refs=…` | Miniaturas optimizadas (~480 px), hasta 12 por petición. |
-| `GET /exec?accion=foto&ref=…` | Foto completa, sin metadatos EXIF/GPS. |
-| `POST /exec` | Subida de una fotografía. |
+| `GET  /exec` | Comprobar que el servidor funciona. |
+| `GET  /exec?accion=lista` | Lista paginada de fotos (códigos públicos y fechas). |
+| `GET  /exec?accion=miniaturas&refs=…` | Miniaturas optimizadas (~480 px), hasta 12 por petición. |
+| `GET  /exec?accion=foto&ref=…` | Foto completa, sin metadatos EXIF ni GPS. |
+| `POST /exec` | Subir una fotografía. |
 
-> El código de Google Apps Script (`Código.gs`) se mantiene en el proyecto de Apps Script y en una copia privada; **no forma parte de este repositorio**.
+> El código del servidor (`Código.gs`) vive en el proyecto de Google Apps Script y en una copia privada. **No forma parte de este repositorio.**
 
----
-
-## Estructura de carpetas
-
-```
-.
-├── index.html            # Página principal: portada, captura, vista previa, confirmación, galerías y visor
-├── style.css             # Estilos e identidad visual
-├── script.js             # Lógica de la aplicación (cámara, subida, galerías, visor, «Mi galería»)
-├── config.js             # Configuración pública (URL del servidor y clave pública del evento)
-├── assets/
-│   ├── pareja-600.jpg        # Fotografía principal en varios tamaños
-│   ├── pareja-900.jpg
-│   ├── pareja-original.jpg
-│   ├── flores-esquina.svg    # Adorno floral
-│   ├── divisor.svg           # Separador decorativo
-│   └── iconos/               # 14 íconos SVG de la interfaz: anterior, camara, cambiar,
-│                             # cerrar, confirmado, corazon, galeria, guardar, imagen,
-│                             # inicio, limpiar, rayo, repetir y siguiente
-│
-│   — Solo para desarrollo local (no forman parte del sitio publicado) —
-├── prueba-subida.html    # Página interna de diagnóstico de la conexión con Apps Script
-├── prueba-subida.js
-├── servidor-https.py     # Servidor HTTPS local para probar desde teléfonos en la misma red Wi-Fi
-├── certs/                # Certificado local de desarrollo (⚠️ contiene una clave privada: NUNCA subir)
-└── .claude/launch.json   # Configuración del entorno de desarrollo
-```
-
-### Archivos que se publican
-
-Solo estos forman el sitio público:
-
-```
-index.html · style.css · script.js · config.js · assets/
-```
-
-> ⚠️ Antes de subir el proyecto a GitHub, excluye `certs/`, los archivos de prueba y las herramientas locales (por ejemplo, con un archivo `.gitignore`).
+</details>
 
 ---
 
-## Instalación y ejecución local
+<a id="estructura"></a>
 
-### Requisitos
+## 🗂️ Estructura del proyecto
 
-- Un navegador moderno (Safari, Chrome, Edge o Firefox).
-- **Python 3** para el servidor local (incluido en macOS).
-- Opcional, para probar desde teléfonos: [mkcert](https://github.com/FiloSottile/mkcert) para crear un certificado HTTPS local.
+```text
+📁 fotos-para-bodas
+├── 📄 index.html            Página: portada, captura, vista previa, confirmación, galerías y visor
+├── 🎨 style.css             Estilos e identidad visual
+├── ⚙️ script.js             Lógica: cámara, subida, galerías, visor y «Mi galería»
+├── 🔧 config.js             Configuración pública (URL del servidor y clave pública del evento)
+└── 📁 assets
+    ├── 🖼️ pareja-600.jpg · pareja-900.jpg · pareja-original.jpg   Fotografía principal
+    ├── 🌿 flores-esquina.svg                                       Adorno floral
+    ├── ✦ divisor.svg                                               Separador decorativo
+    └── 📁 iconos                                                   14 íconos SVG de la interfaz
+```
 
-### Opción 1 — En la computadora
+<details>
+<summary><b>🛠️ Archivos solo para desarrollo local (no se publican)</b></summary>
 
-La cámara del navegador solo funciona en una conexión segura; `localhost` cuenta como segura.
+<br>
+
+| Archivo | Uso |
+|---|---|
+| `prueba-subida.html` · `prueba-subida.js` | Página interna para diagnosticar la conexión con Apps Script. |
+| `servidor-https.py` | Servidor HTTPS local para probar desde teléfonos en la misma red Wi-Fi. |
+| `certs/` | Certificado local de desarrollo. ⚠️ **Contiene una clave privada: nunca debe subirse.** |
+| `.claude/launch.json` | Configuración del entorno de desarrollo. |
+
+</details>
+
+> [!IMPORTANT]
+> Solo `index.html`, `style.css`, `script.js`, `config.js` y `assets/` forman el sitio público. Antes de subir el proyecto a GitHub, excluye `certs/`, los archivos de prueba y las herramientas locales (por ejemplo, con un `.gitignore`).
+
+---
+
+<a id="ejecucion-local"></a>
+
+## 🚀 Ejecución local
+
+**Requisitos:** un navegador moderno y **Python 3** (incluido en macOS). Para probar desde teléfonos, también [mkcert](https://github.com/FiloSottile/mkcert).
+
+### 💻 En la computadora
+
+La cámara del navegador solo funciona en conexiones seguras, y `localhost` cuenta como segura.
 
 ```bash
-cd fotos-para-bodas
 python3 -m http.server 8080 --bind 127.0.0.1
 ```
 
-Abre `http://localhost:8080` en el navegador.
+Abre 👉 `http://localhost:8080`
 
-### Opción 2 — Desde teléfonos en la misma red Wi-Fi (HTTPS)
+<details>
+<summary><b>📱 Desde teléfonos en la misma red Wi-Fi (HTTPS)</b></summary>
 
-1. Crea e instala una autoridad local y un certificado para tu computadora:
+<br>
 
-   ```bash
-   mkcert -install
-   mkcert -cert-file certs/boda-local.pem -key-file certs/boda-local-key.pem \
-          localhost nombre-de-tu-mac.local 192.168.X.X
-   ```
+**1.** Crea una autoridad local y el certificado de tu computadora:
 
-2. Instala y activa en el teléfono el certificado raíz de mkcert (en iPhone: *Ajustes → General → Información → Ajustes de confianza de certificados*).
+```bash
+mkcert -install
+mkcert -cert-file certs/boda-local.pem -key-file certs/boda-local-key.pem \
+       localhost nombre-de-tu-mac.local 192.168.X.X
+```
 
-3. Inicia el servidor HTTPS local:
+**2.** Instala y activa en el teléfono el certificado raíz de mkcert. En iPhone: *Ajustes → General → Información → Ajustes de confianza de certificados*.
 
-   ```bash
-   python3 servidor-https.py
-   ```
+**3.** Inicia el servidor HTTPS local:
 
-4. Abre en el teléfono `https://192.168.X.X:8443` (la IP de tu computadora).
+```bash
+python3 servidor-https.py
+```
 
-> El servidor local solo entrega archivos; no recibe ni guarda fotografías. Bloquea `certs/` y los archivos ocultos.
+**4.** Abre en el teléfono 👉 `https://192.168.X.X:8443`, con la IP de tu computadora.
+
+> El servidor local solo entrega archivos: no recibe ni guarda fotografías, y bloquea `certs/` y los archivos ocultos.
+
+</details>
 
 ---
 
-## Configuración
+<a id="configuracion"></a>
 
-### 1. Página web — `config.js`
+## ⚙️ Configuración
 
-Toda la configuración de este archivo es **pública** (cualquiera puede verla en el navegador). Nunca incluyas contraseñas, tokens ni credenciales.
+### 🌐 Página web · `config.js`
+
+> [!WARNING]
+> Todo lo que hay en `config.js` es **público**: cualquiera puede verlo en el navegador. Nunca incluyas contraseñas, tokens ni credenciales.
 
 ```js
 window.BODA_CONFIG = Object.freeze({
@@ -194,7 +260,10 @@ window.BODA_CONFIG = Object.freeze({
 | `claveEvento` | Identificador público que filtra peticiones al azar. **No es una medida de seguridad.** |
 | `servicio` | Nombre que el servidor incluye en cada respuesta, para comprobar que proviene del servidor correcto. |
 
-### 2. Servidor — Google Apps Script
+<details>
+<summary><b>⚙️ Servidor · Google Apps Script</b></summary>
+
+<br>
 
 **Servicio avanzado:** agregar **Drive API** (identificador `Drive`) para las miniaturas optimizadas.
 
@@ -202,57 +271,68 @@ window.BODA_CONFIG = Object.freeze({
 
 | Propiedad | Ejemplo | Descripción |
 |---|---|---|
-| `SUBIDAS_ACTIVAS` | `false` | Interruptor general. Las subidas solo se activan durante el evento o en pruebas controladas. |
+| `SUBIDAS_ACTIVAS` | `false` | Interruptor general. Se activa durante el evento o en pruebas controladas. |
 | `CARPETA_SUBIDAS` | `ID_DE_TU_CARPETA` | Carpeta privada de Google Drive donde se guardan las fotos. |
 | `CLAVE_EVENTO` | `hm-xxxxxxxxxxxxxxxx` | Debe coincidir con `claveEvento` de `config.js`. |
 | `LIMITE_POR_MINUTO` | `60` | Protección frente a envíos automatizados excesivos (valor en revisión). |
 | `LIMITE_POR_DIA` | `2000` | Freno técnico de seguridad (valor en revisión; no se usará como límite para los invitados). |
 
-**Implementación (aplicación web):**
+**Implementación como aplicación web:**
 
 - *Ejecutar como:* **Yo** (la cuenta dueña de la carpeta).
 - *Quién tiene acceso:* **Cualquier usuario** (los invitados no inician sesión).
 - Para actualizar el código sin cambiar la URL: *Gestionar implementaciones → Editar → Nueva versión*.
 
----
-
-## Seguridad y privacidad
-
-- La **carpeta de Google Drive es privada**; nunca se generan enlaces públicos.
-- Las respuestas públicas **no incluyen** IDs de Drive, correos, tokens ni enlaces internos: solo códigos públicos opacos.
-- Las fotos se entregan **sin metadatos EXIF ni ubicación GPS**.
-- El servidor valida el formato (JPEG real), el tamaño máximo por archivo (8 MB) y el ritmo de subidas, y usa bloqueos para las subidas simultáneas.
-- **Importante:** la clave del evento está en el código público y en el enlace del QR, por lo que **no hace privada la galería**. Cualquier persona con el enlace puede ver las fotos compartidas.
+</details>
 
 ---
 
-## Estado del proyecto
+## 🔒 Seguridad y privacidad
 
-🚧 **En desarrollo y pruebas**, pendiente de su publicación oficial.
+| | |
+|:-:|---|
+| 🗂️ | La **carpeta de Google Drive es privada**: nunca se generan enlaces públicos. |
+| 🙈 | Las respuestas públicas **no incluyen** IDs de Drive, correos, tokens ni enlaces internos, solo códigos públicos opacos. |
+| 📍 | Las fotos se entregan **sin metadatos EXIF ni ubicación GPS**. |
+| 🛡️ | El servidor valida el formato (JPEG real), el tamaño máximo (8 MB por archivo) y el ritmo de subidas, y usa bloqueos para las subidas simultáneas. |
+| 🔑 | La clave del evento está en el código público y en el enlace del QR, por lo que **no hace privada la galería**: cualquier persona con el enlace puede ver las fotos compartidas. |
+
+---
+
+<a id="estado"></a>
+
+## 🗺️ Estado del proyecto
+
+🚧 **En desarrollo y pruebas** · pendiente de su publicación oficial.
 
 **Completado**
 
-- Diseño, cámara, selección, vista previa y confirmación.
-- Optimización de imágenes y subida a Google Drive con confirmación real.
-- Galería compartida con miniaturas optimizadas, paginación y actualización automática.
-- Visor con navegación y botón «Guardar fotografía».
-- «Mi galería» persistente con IndexedDB.
+- [x] Diseño, cámara, selección, vista previa y confirmación
+- [x] Optimización de imágenes y subida a Google Drive con confirmación real
+- [x] Galería compartida con miniaturas optimizadas, paginación y actualización automática
+- [x] Visor con navegación y botón «Guardar fotografía»
+- [x] «Mi galería» persistente con IndexedDB
 
-**Pendiente**
+**Próximos pasos**
 
-- Ajuste de límites y mejoras de rendimiento para muchos invitados a la vez.
-- Aviso amable cuando se intenta compartir de nuevo la misma fotografía.
-- Verificación de descargas en Android.
-- Pruebas integrales en iPhone, Android y computadora.
-- Versión oficial: cuenta, carpeta y Apps Script definitivos, publicación con HTTPS y generación del código QR.
+- [ ] Ajuste de límites y mejoras de rendimiento para muchos invitados a la vez
+- [ ] Aviso amable al intentar compartir de nuevo la misma fotografía
+- [ ] Verificación de descargas en Android
+- [ ] Pruebas integrales en iPhone, Android y computadora
+- [ ] Versión oficial: cuenta, carpeta y Apps Script definitivos, publicación con HTTPS y código QR
 
 ---
 
-## Autoría
+<div align="center">
 
-**Desarrollado por NeitorCompany**
+<img src="assets/divisor.svg" alt="" width="180">
+
+**Desarrollado por NeitorCompany** ⚡
+<br>
 Creado por Alan Leiva
 
-© 2026 NeitorCompany. Todos los derechos reservados.
+<sub>© 2026 NeitorCompany. Todos los derechos reservados.</sub>
 
-Este proyecto **no** se distribuye bajo una licencia de código abierto. No está permitido copiar, modificar ni redistribuir su código o su diseño sin autorización expresa de NeitorCompany.
+<sub>Este proyecto no se distribuye bajo una licencia de código abierto. No está permitido copiar, modificar ni redistribuir su código ni su diseño sin autorización expresa de NeitorCompany.</sub>
+
+</div>

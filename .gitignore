@@ -1,0 +1,6 @@
+.DS_Store
+certs/
+*.key
+*.pem
+*.p12
+*.pfx

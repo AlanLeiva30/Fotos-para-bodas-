@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FAF6EE">
+  <title>Boda Héctor &amp; Martha</title>
+
+  <!--
+    Tipografías (Google Fonts, sin instalar nada):
+    - Cormorant Garamond: títulos elegantes.
+    - Great Vibes: solo para el "&" decorativo.
+    - Montserrat: textos y botones, muy legible en celulares.
+    Si no cargan (sin internet), se usan tipografías del sistema.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=Great+Vibes&family=Montserrat:wght@400;500;600&display=swap">
+
+  <!-- "?v=" obliga al navegador a descargar la versión nueva tras cada cambio. -->
+  <link rel="stylesheet" href="style.css?v=17">
+</head>
+<body>
+  <main class="contenedor">
+    <!-- Portada -->
+    <header class="portada">
+      <!--
+        Fotografía de la pareja como protagonista.
+        - Versiones optimizadas: el navegador elige 600, 900 o 1086 px según la pantalla.
+        - La foto nunca se deforma (object-fit: cover) y se encuadra para
+          mantener los rostros visibles.
+        - La curva inferior (SVG) une la foto con la sección de botones.
+      -->
+      <figure class="foto-pareja">
+        <img src="assets/pareja-900.jpg"
+             srcset="assets/pareja-600.jpg 600w, assets/pareja-900.jpg 900w, assets/pareja-original.jpg 1086w"
+             sizes="(min-width: 700px) 440px, 100vw"
+             width="1086" height="1448"
+             alt="Fotografía de Héctor y Martha"
+             fetchpriority="high">
+        <span class="foto-filete" aria-hidden="true"></span>
+        <svg class="foto-curva" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="curva-dorada" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#B99A5B" stop-opacity="0"/>
+              <stop offset="0.2" stop-color="#B99A5B" stop-opacity="0.9"/>
+              <stop offset="0.8" stop-color="#B99A5B" stop-opacity="0.9"/>
+              <stop offset="1" stop-color="#B99A5B" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path class="foto-curva-linea" d="M0 34 Q200 -14 400 34"/>
+          <path class="foto-curva-relleno" d="M0 61 V42 Q200 -6 400 42 V61 Z"/>
+        </svg>
+      </figure>
+
+      <h1 class="portada-titulo">
+        <span class="portada-boda">Boda</span>
+        <span class="portada-nombre">Héctor</span>
+        <span class="portada-amp">&amp;</span>
+        <span class="portada-nombre">Martha</span>
+      </h1>
+
+      <div class="divisor" aria-hidden="true"></div>
+      <p class="descripcion">Cada fotografía guarda un recuerdo. Ayúdanos a conservar los momentos más especiales de este día.</p>
+    </header>
+
+    <!-- Paso 1: elegir el origen de la fotografía -->
+    <section id="seccion-captura" class="seccion tarjeta" aria-label="Elegir fotografía">
+      <div class="acciones">
+        <button type="button" id="btn-tomar" class="boton icono icono-camara">Tomar fotografía</button>
+        <button type="button" id="btn-seleccionar" class="boton boton-secundario icono icono-imagen">Seleccionar fotografía</button>
+        <button type="button" id="btn-galeria-inicio" class="boton boton-terciario btn-ver-galeria icono icono-galeria">Ver galería</button>
+      </div>
+
+      <!--
+        Inputs nativos (ocultos visualmente, NO con display:none, para que
+        iOS Safari permita abrirlos desde los botones).
+        - input-camara: "capture" pide abrir directamente la cámara trasera
+          en iPhone y Android. En computadoras se ignora y abre el selector.
+        - input-galeria: sin "capture", abre la galería / selector de archivos.
+      -->
+      <input type="file" id="input-camara" class="oculto-visual"
+             accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+      <input type="file" id="input-galeria" class="oculto-visual"
+             accept="image/*" tabindex="-1" aria-hidden="true">
+    </section>
+
+    <!-- Mensajes de estado o error -->
+    <p id="mensaje" class="mensaje" role="status" aria-live="polite" hidden></p>
+
+    <!-- Paso 2: vista previa de la fotografía elegida -->
+    <section id="seccion-vista-previa" class="seccion tarjeta" aria-labelledby="titulo-vista-previa" hidden>
+      <h2 id="titulo-vista-previa">Vista previa</h2>
+      <figure class="vista-previa">
+        <img id="imagen-previa" alt="Vista previa de la fotografía seleccionada">
+        <figcaption id="info-archivo" class="info-archivo"></figcaption>
+      </figure>
+      <div class="acciones acciones-previa">
+        <button type="button" id="btn-confirmar" class="boton icono icono-corazon">Sí, compartir fotografía</button>
+        <button type="button" id="btn-repetir" class="boton boton-secundario icono icono-repetir">Repetir</button>
+        <button type="button" id="btn-cancelar" class="boton boton-secundario icono icono-cerrar">Cancelar</button>
+      </div>
+    </section>
+
+    <!--
+      Paso 3: envío de la fotografía confirmada a Google Drive.
+      El título y el texto cambian según el estado real del envío
+      (preparando, subiendo, compartida, sin confirmar, desactivadas…).
+      «Compartida correctamente» solo aparece cuando el servidor lo confirma.
+    -->
+    <section id="seccion-confirmacion" class="seccion tarjeta" aria-labelledby="titulo-confirmacion" hidden>
+      <span class="subida-spinner" aria-hidden="true"></span>
+      <h2 id="titulo-confirmacion" tabindex="-1">Preparando fotografía…</h2>
+      <p id="texto-confirmacion" class="mensaje" role="status" aria-live="polite"></p>
+      <div class="acciones">
+        <button type="button" id="btn-reintentar-subida" class="boton icono icono-repetir" hidden>Reintentar subida</button>
+        <button type="button" id="btn-otra" class="boton icono icono-camara">Elegir otra fotografía</button>
+        <button type="button" id="btn-galeria-confirmacion" class="boton boton-secundario btn-ver-galeria icono icono-galeria">Ver galería</button>
+      </div>
+    </section>
+
+    <!--
+      Galería con dos pestañas:
+      - «Compartida»: fotografías guardadas en Google Drive por todos los
+        invitados. Se leen a través de Apps Script (la carpeta sigue privada).
+      - «Mi galería»: las fotografías que este invitado confirmó en este
+        dispositivo, con su estado de envío («Compartida», «Enviando…»,
+        «No enviada») y los reintentos.
+    -->
+    <section id="seccion-galeria" class="seccion" aria-labelledby="titulo-galeria" hidden>
+      <h2 id="titulo-galeria" tabindex="-1">Galería</h2>
+
+      <div class="pestanas" role="tablist" aria-label="Galerías">
+        <button type="button" id="pestana-compartida" class="pestana" role="tab" aria-selected="true" aria-controls="panel-compartida">Compartida</button>
+        <button type="button" id="pestana-mia" class="pestana" role="tab" aria-selected="false" aria-controls="panel-mia">Mi galería</button>
+      </div>
+
+      <!-- Galería compartida (Google Drive, solo lectura) -->
+      <div id="panel-compartida" role="tabpanel" aria-labelledby="pestana-compartida">
+        <p class="nota-galeria">
+          Fotografías que los invitados ya compartieron con Héctor &amp; Martha. Toca una para verla en grande.
+        </p>
+        <p id="compartida-estado" class="mensaje" role="status" aria-live="polite" hidden></p>
+        <ul id="compartida-cuadricula" class="galeria-cuadricula"></ul>
+        <div class="acciones acciones-galeria">
+          <button type="button" id="btn-cargar-mas" class="boton boton-secundario" hidden>Cargar más fotografías</button>
+          <button type="button" id="btn-actualizar-galeria" class="boton boton-terciario icono icono-repetir">Actualizar galería</button>
+        </div>
+      </div>
+
+      <!-- Mi galería (fotos de este dispositivo y su estado de envío) -->
+      <div id="panel-mia" role="tabpanel" aria-labelledby="pestana-mia" hidden>
+        <p class="nota-galeria">
+          Las fotos que elegiste en este teléfono, aunque cierres la página. Las marcadas «Compartida» ya están en la galería de todos.
+        </p>
+        <p id="mi-galeria-aviso" class="mensaje" role="status" hidden></p>
+        <p id="galeria-vacia" class="mensaje mensaje-vacio" hidden>Todavía no has confirmado ninguna fotografía.</p>
+        <ul id="galeria-cuadricula" class="galeria-cuadricula"></ul>
+        <div class="acciones acciones-galeria">
+          <!-- Solo aparece cuando hay fotos sin enviar. -->
+          <button type="button" id="btn-reintentar-pendientes" class="boton boton-secundario icono icono-repetir" hidden>Reintentar envíos pendientes</button>
+        </div>
+      </div>
+
+      <!-- Botones a la par. «Limpiar mi galería» solo se ve en la pestaña «Mi galería»
+           cuando tiene fotos; borra lo guardado en este teléfono, nunca Google Drive. -->
+      <div class="acciones acciones-galeria acciones-par">
+        <button type="button" id="btn-volver-inicio" class="boton icono icono-inicio">Volver al inicio</button>
+        <button type="button" id="btn-limpiar-mi-galeria" class="boton boton-terciario icono icono-limpiar" hidden>Limpiar mi galería</button>
+      </div>
+    </section>
+  </main>
+
+  <!--
+    Pie de página (único en la página). Queda al final del contenido en
+    todas las pantallas: inicio, vista previa, confirmación y galería.
+  -->
+  <footer class="pie">
+    <div class="pie-divisor" aria-hidden="true"></div>
+    <p class="pie-linea"><strong>Desarrollado por NeitorCompany</strong></p>
+    <p class="pie-linea">Creado por Alan Leiva</p>
+    <p class="pie-copy">© 2026 NeitorCompany<span class="pie-rayo" aria-hidden="true"></span> · Todos los derechos reservados.</p>
+  </footer>
+
+  <!-- Visor de una fotografía en tamaño grande (pantalla completa). -->
+  <div id="visor" class="visor" role="dialog" aria-modal="true" aria-label="Fotografía en tamaño grande" hidden>
+    <div class="visor-marco">
+      <img id="visor-imagen" class="visor-imagen" alt="">
+    </div>
+    <p id="visor-contador" class="visor-contador"></p>
+    <!-- Solo en la galería compartida: guarda la foto completa (iPhone: menú compartir; Android y computadora: descarga JPEG). -->
+    <button type="button" id="visor-guardar" class="boton visor-guardar icono icono-guardar" hidden>Guardar fotografía</button>
+    <div class="visor-acciones">
+      <button type="button" id="visor-anterior" class="boton boton-secundario icono icono-anterior" aria-label="Fotografía anterior">Anterior</button>
+      <button type="button" id="visor-cerrar" class="boton boton-secundario icono icono-cerrar">Cerrar</button>
+      <button type="button" id="visor-siguiente" class="boton boton-secundario icono-siguiente" aria-label="Fotografía siguiente">Siguiente</button>
+    </div>
+  </div>
+
+  <!--
+    Cuadro de diálogo propio (estilo SweetAlert, sin librerías externas) para
+    confirmaciones y avisos amables, con los colores de Héctor & Martha.
+  -->
+  <div id="dialogo" class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dialogo-titulo" aria-describedby="dialogo-texto" hidden>
+    <div class="dialogo-tarjeta">
+      <span id="dialogo-icono" class="dialogo-icono" aria-hidden="true"></span>
+      <h2 id="dialogo-titulo" class="dialogo-titulo"></h2>
+      <p id="dialogo-texto" class="dialogo-texto"></p>
+      <p id="dialogo-aviso" class="dialogo-aviso" hidden></p>
+      <div class="dialogo-acciones">
+        <button type="button" id="dialogo-cancelar" class="boton boton-secundario">Cancelar</button>
+        <button type="button" id="dialogo-aceptar" class="boton">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!--
+    Cámara integrada (pantalla completa) con getUserMedia.
+    Solo funciona en conexiones seguras (HTTPS o localhost). Si no está
+    disponible, "Tomar fotografía" abre la cámara nativa del teléfono.
+  -->
+  <div id="camara" class="camara" role="dialog" aria-modal="true" aria-label="Cámara" hidden>
+    <video id="camara-video" class="camara-video" autoplay playsinline muted></video>
+    <div id="camara-flash" class="camara-flash" aria-hidden="true"></div>
+
+    <div class="camara-superior">
+      <button type="button" id="camara-cerrar" class="camara-boton-redondo icono icono-cerrar" aria-label="Cerrar cámara"></button>
+      <p class="camara-marca" aria-hidden="true">Héctor <span>&amp;</span> Martha</p>
+      <span class="camara-espaciador" aria-hidden="true"></span>
+    </div>
+
+    <div id="camara-cargando" class="camara-cargando" role="status" aria-live="polite">
+      <span class="camara-spinner" aria-hidden="true"></span>
+      <p>Activando cámara…</p>
+    </div>
+
+    <div id="camara-error" class="camara-error" hidden>
+      <div class="camara-error-tarjeta" role="alert">
+        <h2 id="camara-error-titulo">No pudimos abrir la cámara</h2>
+        <p id="camara-error-texto"></p>
+        <div class="acciones">
+          <button type="button" id="camara-usar-nativa" class="boton icono icono-camara">Usar la cámara del teléfono</button>
+          <button type="button" id="camara-reintentar" class="boton boton-secundario icono icono-repetir">Intentar de nuevo</button>
+          <button type="button" id="camara-error-cerrar" class="boton boton-terciario icono icono-cerrar">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="camara-inferior">
+      <button type="button" id="camara-galeria" class="camara-boton-redondo icono icono-imagen" aria-label="Elegir una fotografía de la galería"></button>
+      <button type="button" id="camara-disparador" class="camara-disparador" aria-label="Capturar fotografía" disabled><span></span></button>
+      <button type="button" id="camara-cambiar" class="camara-boton-redondo icono icono-cambiar" aria-label="Cambiar entre cámara frontal y trasera" hidden></button>
+      <!-- Créditos discretos bajo el disparador (la cámara cubre toda la pantalla). -->
+      <p class="camara-creditos">Desarrollado por NeitorCompany · Creado por Alan Leiva</p>
+    </div>
+  </div>
+
+  <!-- config.js: configuración PÚBLICA del servidor (sin contraseñas). -->
+  <script src="config.js?v=2"></script>
+  <script src="script.js?v=20"></script>
+</body>
+</html>

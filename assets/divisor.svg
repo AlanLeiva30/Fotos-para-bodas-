@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 240 24">
+  <!-- Divisor decorativo: líneas doradas con hojas y una flor al centro. -->
+  <defs>
+    <path id="h" d="M0 0C4-5 11-5 16 0C11 5 4 5 0 0Z"/>
+  </defs>
+  <path d="M14 12H96M144 12H226" stroke="#B99A5B" stroke-width="1" stroke-linecap="round" fill="none"/>
+  <g fill="#89967B">
+    <use href="#h" xlink:href="#h" transform="translate(110 12) rotate(200)"/>
+    <use href="#h" xlink:href="#h" transform="translate(110 12) rotate(160)"/>
+    <use href="#h" xlink:href="#h" transform="translate(130 12) rotate(-20)"/>
+    <use href="#h" xlink:href="#h" transform="translate(130 12) rotate(20)"/>
+  </g>
+  <g fill="#FAF6EE" stroke="#B99A5B" stroke-width="1">
+    <circle cx="120" cy="8.2" r="3"/>
+    <circle cx="123.6" cy="10.8" r="3"/>
+    <circle cx="122.2" cy="15" r="3"/>
+    <circle cx="117.8" cy="15" r="3"/>
+    <circle cx="116.4" cy="10.8" r="3"/>
+  </g>
+  <circle cx="120" cy="12" r="1.8" fill="#B99A5B"/>
+  <circle cx="10" cy="12" r="1.8" fill="#B99A5B"/>
+  <circle cx="230" cy="12" r="1.8" fill="#B99A5B"/>
+</svg>

@@ -1240,13 +1240,13 @@
     }
   }
 
-  // Una miniatura que no llegó. Causa más común (comprobada): la foto se subió
-  // hace un momento y Google Drive todavía no generó su miniatura.
+  // Una miniatura que no llegó (p. ej., Google Drive no generó la suya).
   //   - «no-disponible»: el archivo ya no está → «No disponible» (definitivo).
   //   - Foto propia («Tuya»): se usa la miniatura que ya está en este teléfono.
-  //   - Si no: hasta 3 reintentos espaciados, solo cuando la foto esté a la vista
-  //     (el último, pasados los 10 min que el servidor recuerda un fallo).
-  //     Después, «Toca para verla» (la foto completa sí se puede abrir).
+  //   - «sin-miniatura»: se usa enseguida la foto completa (la misma
+  //     descarga que al tocarla) y se reduce aquí. Ver miniaturaDesdeFoto.
+  //   - Si no (p. ej., sin red): hasta 3 reintentos espaciados, solo cuando la
+  //     foto esté a la vista. Después, «Toca para verla».
   const ESPERAS_MINIATURA_MS = [75000, 180000, 660000];
 
   function miniaturaFallida(ref, motivo) {
@@ -1259,6 +1259,8 @@
     }
     if (usarMiniaturaLocal(ref)) return;
     d.intentosMin = (d.intentosMin || 0) + 1;
+    // El servidor recuerda cada fallo 10 min: esperar y repetir no sirve, se va directo a la foto.
+    if (motivo === 'sin-miniatura' && miniaturaDesdeFoto(ref)) return;
     if (d.intentosMin > ESPERAS_MINIATURA_MS.length) {
       d.estadoMin = 'error';
       pintarMiniatura(ref);
@@ -1305,6 +1307,49 @@
       pintarMiniatura(ref);
     });
     return true;
+  }
+
+  // Excepción: el servidor no tiene miniatura de esta foto. Se descarga la foto
+  // completa (la misma descarga que al tocarla, así el visor no la vuelve a
+  // pedir) y se reduce aquí. Solo para estas excepciones, una a la vez, solo
+  // las que el invitado tiene a la vista y con un tope por visita.
+  const MAX_MINIATURAS_DESDE_FOTO = 30;
+  const desdeFoto = { cola: [], activa: false, usadas: 0 };
+
+  function miniaturaDesdeFoto(ref) {
+    const d = compartida.datos[ref];
+    if (!d || desdeFoto.usadas + desdeFoto.cola.length >= MAX_MINIATURAS_DESDE_FOTO) return false;
+    d.estadoMin = 'desde-foto'; // se sigue viendo como «cargando»
+    pintarMiniatura(ref);
+    desdeFoto.cola.push(ref);
+    procesarDesdeFoto();
+    return true;
+  }
+
+  async function procesarDesdeFoto() {
+    if (desdeFoto.activa) return;
+    desdeFoto.activa = true;
+    try {
+      while (desdeFoto.cola.length > 0) {
+        const ref = desdeFoto.cola.shift();
+        const d = compartida.datos[ref];
+        if (!d || d.estadoMin !== 'desde-foto') continue;
+        desdeFoto.usadas++;
+        const r = await descargarFotoCompleta(ref);
+        if (compartida.datos[ref] !== d) continue; // se eliminó mientras tanto
+        const url = r.ok && d.fotoBlob ? await miniaturaReducida(d.fotoBlob) : null;
+        if (compartida.datos[ref] !== d) { if (url) URL.revokeObjectURL(url); continue; }
+        if (url) {
+          d.miniaturaUrl = url;
+          d.estadoMin = 'lista';
+        } else {
+          d.estadoMin = r.codigo === 'no-disponible' ? 'no-disponible' : 'error';
+        }
+        pintarMiniatura(ref);
+      }
+    } finally {
+      desdeFoto.activa = false;
+    }
   }
 
   if ('IntersectionObserver' in window) {

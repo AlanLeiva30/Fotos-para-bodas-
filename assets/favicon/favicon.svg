@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Héctor &amp; Martha</title>
+  <!-- Ícono original de NeitorCompany: dos anillos de boda entrelazados sobre el verde de la boda. -->
+  <defs>
+    <linearGradient id="oro" gradientUnits="userSpaceOnUse" x1="12" y1="16" x2="52" y2="48">
+      <stop offset="0" stop-color="#E6D099"/>
+      <stop offset="0.55" stop-color="#C6A766"/>
+      <stop offset="1" stop-color="#A3833F"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="31" fill="#344C3D"/>
+  <!-- Anillos un poco más grandes para que se reconozcan a 16 px. -->
+  <g fill="none" stroke="url(#oro)" stroke-width="4.4" transform="translate(32 32) scale(1.18) translate(-32 -32)">
+    <circle cx="25" cy="33" r="12.5"/>
+    <circle cx="39" cy="31" r="12.5"/>
+    <!-- Cruce inferior: el anillo izquierdo pasa por encima (efecto entrelazado). -->
+    <path d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07" stroke="#344C3D" stroke-width="7.6"/>
+    <path d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07"/>
+  </g>
+</svg>

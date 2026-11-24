@@ -546,6 +546,7 @@ body:has(#seccion-captura[hidden])::after {
 .icono-guardar   { --icono: url("assets/iconos/guardar.svg"); }
 .icono-limpiar   { --icono: url("assets/iconos/limpiar.svg"); }
 .icono-inicio    { --icono: url("assets/iconos/inicio.svg"); }
+.icono-eliminar  { --icono: url("assets/iconos/eliminar.svg"); }
 
 /* ---------- Vista previa ---------- */
 
@@ -757,7 +758,7 @@ body:has(#seccion-captura[hidden])::after {
 }
 
 .acciones-galeria {
-  max-width: 360px;
+  max-width: 420px; /* el mismo ancho que la fila de abajo: bordes alineados */
   margin: 0 auto;
 }
 
@@ -766,6 +767,11 @@ body:has(#seccion-captura[hidden])::after {
   flex-direction: row;
   max-width: 420px;
   gap: 10px;
+}
+/* Separación entre «Actualizar galería» y la fila «Volver al inicio /
+   Limpiar mi galería». */
+#btn-actualizar-galeria {
+  margin-bottom: 10px;
 }
 
 .acciones-par .boton {
@@ -1557,4 +1563,807 @@ body.camara-abierta {
   white-space: nowrap;
   border: 0;
   opacity: 0;
+}
+
+/* ---------- Modo organizador (llave del pie y papeleras) ---------- */
+.galeria-cuadricula li {
+  position: relative;
+}
+.boton-papelera {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--dorado);
+  border-radius: 50%;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 2px 8px rgba(73, 54, 43, 0.2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.boton-papelera::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: #7A3B2E;
+  -webkit-mask: url("assets/iconos/eliminar.svg") center / contain no-repeat;
+  mask: url("assets/iconos/eliminar.svg") center / contain no-repeat;
+}
+.boton-papelera:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.boton-papelera.eliminando::before {
+  width: 16px;
+  height: 16px;
+  -webkit-mask: none;
+  mask: none;
+  background: none;
+  border: 2px solid rgba(122, 59, 46, 0.25);
+  border-top-color: #7A3B2E;
+  border-radius: 50%;
+  animation: girar 0.9s linear infinite;
+}
+.organizador-aviso {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 auto 12px;
+  padding: 8px 10px 8px 14px;
+  font-size: 0.8rem;
+  color: #7A3B2E;
+  background: #F7ECE6;
+  border: 1px dashed rgba(122, 59, 46, 0.45);
+  border-radius: 12px;
+}
+.organizador-aviso[hidden] {
+  display: none;
+}
+.organizador-salir {
+  padding: 4px 12px;
+  font: 600 0.76rem var(--fuente-texto);
+  color: #7A3B2E;
+  background: transparent;
+  border: 1px solid rgba(122, 59, 46, 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.dialogo-campo {
+  width: 100%;
+  margin: -4px 0 16px;
+  padding: 11px 14px;
+  font: 500 0.9rem ui-monospace, Menlo, Consolas, monospace;
+  color: var(--texto);
+  background: #fff;
+  border: 1px solid var(--borde-dorado);
+  border-radius: 12px;
+}
+.dialogo-campo:focus {
+  outline: 2px solid var(--dorado);
+  outline-offset: 1px;
+}
+.pie-iconos {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.pie-organizador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--borde-dorado);
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0.7;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--transicion), border-color var(--transicion), background var(--transicion);
+}
+.pie-organizador::before {
+  content: "";
+  width: 15px;
+  height: 15px;
+  background: var(--texto-suave);
+  -webkit-mask: url("assets/iconos/llave.svg") center / contain no-repeat;
+  mask: url("assets/iconos/llave.svg") center / contain no-repeat;
+}
+.pie-organizador:focus-visible {
+  outline: 2px solid var(--dorado);
+  outline-offset: 2px;
+}
+.pie-organizador.activo {
+  opacity: 1;
+  border-color: var(--dorado);
+  background: rgba(185, 154, 91, 0.12);
+}
+.pie-organizador.activo::before {
+  background: var(--dorado);
+}
+@media (hover: hover) {
+  .pie-organizador:hover {
+    opacity: 1;
+    border-color: var(--dorado);
+  }
+}
+
+/* ---------- Botón de sonidos (pie) ---------- */
+.pie-sonido::before {
+  -webkit-mask-image: url("assets/iconos/silencio.svg");
+  mask-image: url("assets/iconos/silencio.svg");
+}
+.pie-sonido.activo::before {
+  -webkit-mask-image: url("assets/iconos/sonido.svg");
+  mask-image: url("assets/iconos/sonido.svg");
+}
+
+/* ---------- Efectos del ícono del cuadro de diálogo (una sola vez, sin bucles) ---------- */
+.dialogo-icono[data-efecto="compartir"] {
+  animation: dialogo-icono 0.6s ease 0.1s both, dialogo-latido 0.7s ease 0.7s 1 both;
+}
+.dialogo-icono[data-efecto="compartir"]::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--dorado);
+  animation: dialogo-onda 1.1s ease-out 0.5s 1 both;
+  pointer-events: none;
+}
+.dialogo-icono[data-efecto="eliminar"] {
+  animation: dialogo-icono 0.6s ease 0.1s both, dialogo-latido 0.6s ease 0.7s 1 both;
+}
+.dialogo-icono[data-efecto="error"] {
+  animation: dialogo-icono 0.6s ease 0.1s both, dialogo-sacudida 0.45s ease 0.7s 1 both;
+}
+.dialogo-icono[data-efecto="advertencia"] {
+  animation: dialogo-icono 0.6s ease 0.1s both, dialogo-latido 0.9s ease 0.7s 2 both;
+}
+@keyframes dialogo-latido {
+  0%, 100% { transform: none; }
+  40%      { transform: scale(1.08); }
+}
+@keyframes dialogo-sacudida {
+  0%, 100% { transform: none; }
+  20%      { transform: translateX(-5px); }
+  40%      { transform: translateX(5px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(3px); }
+}
+@keyframes dialogo-onda {
+  0%   { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialogo-icono[data-efecto]::after { display: none; }
+}
+
+/* ---------- Jerarquía de los botones de la galería ---------- */
+/* «Limpiar mi galería»: acción delicada y poco frecuente → botón de texto discreto. */
+.boton-texto {
+  color: var(--texto-suave);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 500;
+}
+@media (hover: hover) {
+  .boton-texto:hover {
+    color: var(--cafe);
+    background: rgba(185, 154, 91, 0.08);
+    border-color: transparent;
+  }
+}
+.boton-texto:focus-visible {
+  outline: 2px solid var(--dorado);
+  outline-offset: 2px;
+}
+
+/* Aviso «N fotografías sin enviar» arriba de «Mi galería». */
+.aviso-pendientes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 10px 10px 16px;
+  background: #F7ECE6;
+  border: 1px solid rgba(122, 59, 46, 0.2);
+  border-radius: 14px;
+}
+.aviso-pendientes[hidden] {
+  display: none;
+}
+.aviso-pendientes-texto {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #7A3B2E;
+}
+.aviso-pendientes-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 14px;
+  font: 600 0.8rem var(--fuente-texto);
+  letter-spacing: 0.02em;
+  color: #7A3B2E;
+  background: var(--crema-claro);
+  border: 1px solid rgba(122, 59, 46, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.aviso-pendientes-boton.icono::before {
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+}
+.aviso-pendientes-boton:focus-visible {
+  outline: 2px solid var(--dorado);
+  outline-offset: 2px;
+}
+/* «Volver al inicio» solo (pestaña «Compartida»): mismo tamaño de letra que los demás botones. */
+.acciones-par:has(> .boton[hidden]) .boton {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- Cuadro de diálogo: estado de carga y mensaje de error ---------- */
+.dialogo-acciones .boton.cargando,
+.dialogo-acciones .boton.cargando:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+.dialogo-acciones .boton.cargando::before {
+  content: "";
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(250, 246, 238, 0.35);
+  border-top-color: var(--crema);
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+.dialogo-error {
+  margin: -4px 0 16px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #7A3B2E;
+}
+
+/* ---------- «Mantener para confirmar»: el botón empieza blanco y se llena de verde ---------- */
+.dialogo-acciones .boton.mantener {
+  position: relative;
+  overflow: hidden;
+  flex-grow: 1.5; /* un poco más ancho que «Cancelar» */
+  white-space: nowrap; /* el texto en una sola línea */
+  letter-spacing: 0;
+  font-size: 0.82rem;
+  color: var(--verde);
+  background: var(--crema-claro);
+  border-color: var(--verde);
+  box-shadow: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* sin menú al mantener en iPhone */
+  touch-action: none;
+}
+/* Capa verde con el mismo texto en crema: se revela de izquierda a derecha. */
+.dialogo-acciones .boton.mantener::before {
+  content: attr(data-texto);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  color: var(--crema);
+  background: var(--verde);
+  white-space: nowrap;
+  -webkit-clip-path: inset(0 calc((1 - var(--progreso, 0)) * 100%) 0 0);
+  clip-path: inset(0 calc((1 - var(--progreso, 0)) * 100%) 0 0);
+}
+.dialogo-acciones .boton.mantener.soltando::before {
+  transition: clip-path 0.28s ease, -webkit-clip-path 0.28s ease;
+}
+.dialogo-acciones .boton.mantener:active {
+  transform: scale(0.98);
+}
+@media (max-width: 340px) {
+  .dialogo-acciones .boton.mantener,
+  .dialogo-acciones .boton.mantener::before {
+    white-space: normal;
+  }
+}
+.dialogo-ayuda {
+  margin: 12px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--texto-suave);
+}
+.dialogo-ayuda.resaltar {
+  color: #7A3B2E;
+  animation: dialogo-ayuda-resaltar 0.5s ease;
+}
+@keyframes dialogo-ayuda-resaltar {
+  0%, 100% { transform: none; }
+  30%      { transform: translateX(-3px); }
+  60%      { transform: translateX(3px); }
+}
+.dialogo-alternativa {
+  display: inline;
+  margin: 0;
+  padding: 4px 2px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--verde);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.dialogo-alternativa:focus-visible {
+  outline: 2px solid var(--dorado);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- Envío de una foto: dos anillos que se acercan y se entrelazan ---------- */
+.dialogo-anillos {
+  width: 136px;
+  height: 112px;
+  margin: -6px auto 8px;
+}
+.dialogo-anillos[hidden] {
+  display: none;
+}
+.dialogo-anillos svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: anillos-flotar 3.4s ease-in-out 1.9s infinite;
+}
+.anillo-trazo {
+  fill: none;
+  stroke: url(#anillo-oro);
+  stroke-width: 3.6;
+}
+/* Brillo metálico suave que recorre cada anillo. */
+.anillo-brillo {
+  fill: none;
+  stroke: #FFF6DE;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-dasharray: 8 70.5;
+  opacity: 0.7;
+  animation: anillo-brillo 3.6s linear 1.6s infinite both;
+}
+.anillo-brillo-der {
+  stroke-dashoffset: 39;
+  animation-duration: 4.4s;
+  animation-direction: reverse;
+}
+.anillo-cruce-halo {
+  fill: none;
+  stroke: var(--crema-claro);
+  stroke-width: 6.6;
+}
+.anillo {
+  transform-box: view-box;
+}
+.anillo-izq {
+  transform-origin: 25px 33px;
+  animation: anillo-izq 1.8s cubic-bezier(0.45, 0, 0.2, 1) both;
+}
+.anillo-der {
+  transform-origin: 39px 31px;
+  animation: anillo-der 1.8s cubic-bezier(0.45, 0, 0.2, 1) both;
+}
+@keyframes anillo-izq {
+  0%   { opacity: 0; transform: translate(-11px, 2px) rotate(-10deg); }
+  30%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes anillo-der {
+  0%   { opacity: 0; transform: translate(11px, -2px) rotate(10deg); }
+  30%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes anillos-flotar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+@keyframes anillo-brillo {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -78.5; }
+}
+/* Éxito: los anillos se iluminan un instante antes de «¡Recuerdo compartido!». */
+.dialogo-anillos.listo svg {
+  animation: anillos-listo 0.45s ease both;
+}
+@keyframes anillos-listo {
+  0%   { transform: none; filter: none; }
+  50%  { transform: scale(1.08); filter: drop-shadow(0 0 6px rgba(201, 170, 105, 0.55)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 3px rgba(201, 170, 105, 0.35)); }
+}
+.dialogo-segundo-plano {
+  display: block;
+  margin: 4px auto 0;
+  font-size: 0.8rem;
+}
+.dialogo-segundo-plano[hidden] {
+  display: none;
+}
+/* Menos movimiento: anillos ya entrelazados y quietos, sin brillo que gire. */
+@media (prefers-reduced-motion: reduce) {
+  .anillo-izq,
+  .anillo-der,
+  .dialogo-anillos svg,
+  .dialogo-anillos.listo svg {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .anillo-brillo {
+    display: none;
+  }
+}
+
+/* ---------- Transición «Volver al inicio»: la paloma se forma, aletea y se va volando ---------- */
+/* Línea de tiempo (≈2.3 s): cola 0–0.4 · cuerpo 0.2–0.6 · cabeza y pico 0.45–0.8 ·
+   alas 0.65–1.15 · olivo 1–1.25 · aleteo y vuelo 1.25–2.05 · fundido 1.9–2.3 s. */
+.transicion-inicio {
+  position: fixed;
+  inset: 0;
+  z-index: 40; /* sobre el visor y el cuadro de diálogo */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(185, 154, 91, 0.12), transparent 60%),
+    var(--crema);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.transicion-inicio.visible {
+  opacity: 1;
+}
+.transicion-inicio.saliendo {
+  opacity: 0;
+  transition-duration: 0.4s;
+}
+body.transicion-abierta {
+  overflow: hidden;
+}
+.transicion-contenido {
+  max-width: 340px;
+}
+.paloma {
+  display: block;
+  width: 200px;
+  height: 143px;
+  margin: 0 auto 10px;
+  overflow: visible;
+}
+.paloma .pieza,
+.paloma .ala,
+.paloma-vuelo,
+.destello {
+  transform-box: view-box;
+}
+/* Cada pieza llega a su lugar (sin animación, la paloma se ve completa). */
+.pieza-cola        { transform-origin: 40px 60px;  animation: pieza-cola 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) 0s both; }
+.pieza-cuerpo      { transform-origin: 72px 52px;  animation: pieza-cuerpo 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) 0.2s both; }
+.pieza-cabeza      { transform-origin: 108px 37px; animation: pieza-cabeza 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) 0.45s both; }
+.pieza-ala-lejana  { transform-origin: 64px 44px;  animation: pieza-ala-lejana 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) 0.65s both; }
+.pieza-ala-cercana { transform-origin: 68px 44px;  animation: pieza-ala-cercana 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) 0.72s both; }
+.pieza-olivo       { transform-origin: 118px 38px; animation: pieza-olivo 0.3s cubic-bezier(0.2, 0.8, 0.3, 1.3) 1s both; }
+@keyframes pieza-cola {
+  from { opacity: 0; transform: translate(-16px, 10px) rotate(-14deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pieza-cuerpo {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pieza-cabeza {
+  from { opacity: 0; transform: translate(10px, -6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pieza-ala-lejana {
+  from { opacity: 0; transform: translate(-8px, -18px) rotate(-22deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pieza-ala-cercana {
+  from { opacity: 0; transform: translate(10px, -24px) rotate(28deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pieza-olivo {
+  from { opacity: 0; transform: scale(0.2); }
+  to   { opacity: 1; transform: none; }
+}
+/* Ya completa: aletea (3 veces) y se va volando hacia arriba a la derecha. */
+.ala-cercana { transform-origin: 68px 44px; animation: ala-cercana 0.27s ease-in-out 1.2s 6 alternate both; }
+.ala-lejana  { transform-origin: 64px 44px; animation: ala-lejana 0.27s ease-in-out 1.23s 6 alternate both; }
+.paloma-vuelo {
+  transform-origin: 70px 50px;
+  animation: paloma-se-va 0.85s cubic-bezier(0.5, 0, 0.75, 0.4) 1.25s both;
+}
+@keyframes ala-cercana {
+  from { transform: rotate(-8deg); }
+  to   { transform: rotate(50deg) scaleY(0.9); }
+}
+@keyframes ala-lejana {
+  from { transform: rotate(-5deg); }
+  to   { transform: rotate(34deg); }
+}
+@keyframes paloma-se-va {
+  0%   { transform: none; opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(70px, -60px) scale(0.55) rotate(-8deg); opacity: 0; }
+}
+/* Destellos dorados discretos mientras se forma. */
+.destello {
+  transform-origin: center;
+  opacity: 0;
+  animation: destello 0.9s ease-in-out 0.5s 2 both;
+}
+.destello.d1 { transform-origin: 18px 24.5px; }
+.destello.d2 { transform-origin: 122px 17.6px; animation-delay: 0.7s; }
+.destello.d3 { transform-origin: 128px 73.2px; animation-delay: 0.9s; }
+.destello.d4 { transform-origin: 10px 76.8px; animation-delay: 1.1s; }
+@keyframes destello {
+  0%, 100% { opacity: 0; transform: scale(0.6); }
+  50%      { opacity: 0.85; transform: scale(1); }
+}
+.transicion-titulo {
+  margin: 0 0 6px;
+  font-family: var(--fuente-titulos);
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--verde);
+}
+.transicion-texto {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--texto-suave);
+}
+.transicion-firma {
+  margin: 0;
+  font-family: var(--fuente-script);
+  font-size: 1.6rem;
+  color: var(--dorado);
+}
+.transicion-titulo,
+.transicion-texto,
+.transicion-firma {
+  animation: transicion-texto 0.5s ease 0.15s both;
+}
+.transicion-texto { animation-delay: 0.3s; }
+.transicion-firma { animation-delay: 0.45s; }
+@keyframes transicion-texto {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+/* Menos movimiento: la paloma aparece completa y quieta, sin destellos, solo un fundido breve. */
+@media (prefers-reduced-motion: reduce) {
+  .paloma .pieza,
+  .paloma .ala,
+  .paloma-vuelo,
+  .transicion-titulo,
+  .transicion-texto,
+  .transicion-firma {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .destellos {
+    display: none;
+  }
+}
+
+/* ---------- Bienvenida al abrir/recargar: iglesia + anillos + «Héctor & Martha» ---------- */
+/* Línea de tiempo (≈1.95 s): iglesia 0–1.0 · anillos 0.8–1.2 · textos 1.0–1.35 ·
+   resplandor 1.2–1.5 · salida 1.6–1.95 s. Seguro sin JavaScript: se oculta a los 3 s. */
+.bienvenida {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* sobre todo lo demás */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(185, 154, 91, 0.10), transparent 62%),
+    var(--crema);
+  cursor: pointer;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+  animation: bienvenida-seguro 0.35s ease 3s forwards;
+}
+.bienvenida.saliendo {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+@keyframes bienvenida-seguro {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+.bienvenida-contenido {
+  max-width: 360px;
+  animation: bienvenida-aparece 0.3s ease both;
+}
+@keyframes bienvenida-aparece {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.iglesia {
+  display: block;
+  width: min(250px, 66vw);
+  height: auto;
+  margin: 0 auto 6px;
+  overflow: visible;
+}
+/* A. Trazos que se dibujan (pathLength = 1) */
+.trazo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trazo-dibuja 0.45s ease-out both;
+}
+.t-suelo  { animation-delay: 0s;    animation-duration: 0.35s; }
+.t-nave   { animation-delay: 0.12s; }
+.t-torre  { animation-delay: 0.28s; }
+.t-aguja  { animation-delay: 0.48s; animation-duration: 0.35s; }
+.t-puerta { animation-delay: 0.58s; animation-duration: 0.3s; }
+.t-campana{ animation-delay: 0.64s; animation-duration: 0.3s; }
+@keyframes trazo-dibuja {
+  to { stroke-dashoffset: 0; }
+}
+.iglesia-ventanas {
+  opacity: 0;
+  animation: aparece 0.3s ease 0.7s both;
+}
+.iglesia-cruz {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: trazo-dibuja 0.25s ease-out 0.82s both, cruz-brilla 0.6s ease 1.05s both;
+}
+@keyframes cruz-brilla {
+  50% { filter: drop-shadow(0 0 3px rgba(201, 170, 105, 0.8)); }
+  to  { filter: drop-shadow(0 0 1px rgba(201, 170, 105, 0.4)); }
+}
+@keyframes aparece {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* B. Anillos */
+.b-anillo {
+  transform-box: view-box;
+}
+.b-anillo-izq {
+  transform-origin: 25px 33px;
+  animation: b-anillo-izq 0.42s cubic-bezier(0.3, 0, 0.2, 1) 0.8s both;
+}
+.b-anillo-der {
+  transform-origin: 39px 31px;
+  animation: b-anillo-der 0.42s cubic-bezier(0.3, 0, 0.2, 1) 0.8s both;
+}
+@keyframes b-anillo-izq {
+  from { opacity: 0; transform: translate(-46px, 0) rotate(-20deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes b-anillo-der {
+  from { opacity: 0; transform: translate(46px, 0) rotate(20deg); }
+  to   { opacity: 1; transform: none; }
+}
+.b-anillos-brillo {
+  opacity: 0;
+  animation: brillo-union 0.6s ease 1.18s both;
+}
+@keyframes brillo-union {
+  0%   { opacity: 0; }
+  45%  { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+/* Destellos y resplandor (C) */
+.b-destello {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: b-destello 0.8s ease-in-out both;
+}
+.bd1 { animation-delay: 0.55s; }
+.bd2 { animation-delay: 0.85s; }
+.bd3 { animation-delay: 1.15s; }
+@keyframes b-destello {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50%      { opacity: 0.9; transform: scale(1); }
+}
+.iglesia-resplandor {
+  opacity: 0;
+  animation: aparece 0.45s ease 1.2s both;
+}
+.bienvenida-titulo {
+  margin: 0;
+  font-family: var(--fuente-titulos);
+  font-size: 2.1rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--verde);
+  animation: bienvenida-texto 0.4s ease 1s both;
+}
+.bienvenida-amp {
+  font-family: var(--fuente-script);
+  font-weight: 400;
+  color: var(--dorado);
+}
+.bienvenida-texto {
+  margin: 6px 0 0;
+  font-family: var(--fuente-titulos);
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--texto-suave);
+  animation: bienvenida-texto 0.4s ease 1.12s both;
+}
+.bienvenida-carga {
+  margin: 18px 0 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--texto-suave);
+  animation: bienvenida-carga 1.2s ease-in-out 0.2s infinite alternate both;
+}
+@keyframes bienvenida-texto {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes bienvenida-carga {
+  from { opacity: 0.45; }
+  to   { opacity: 1; }
+}
+/* Menos movimiento: composición ya dibujada y quieta; se va con un fundido breve. */
+@media (prefers-reduced-motion: reduce) {
+  .bienvenida-contenido,
+  .trazo,
+  .iglesia-ventanas,
+  .iglesia-cruz,
+  .b-anillo,
+  .b-anillos-brillo,
+  .iglesia-resplandor,
+  .bienvenida-titulo,
+  .bienvenida-texto,
+  .bienvenida-carga {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+    stroke-dashoffset: 0;
+  }
+  .b-anillos-brillo,
+  .iglesia-resplandor {
+    opacity: 0.35;
+  }
+  .bienvenida-destellos {
+    display: none;
+  }
+  .bienvenida {
+    animation: bienvenida-seguro 0.3s ease 2s forwards !important;
+  }
 }

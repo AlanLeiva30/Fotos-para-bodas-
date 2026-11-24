@@ -52,7 +52,7 @@
   // Respuestas temporales del servidor: se reintenta solo, con el mismo id.
   const CODIGOS_TEMPORALES = ['ocupado', 'en-proceso', 'limite-minuto', 'error-guardado', 'verificacion-fallida', 'error-interno'];
   // Rechazos definitivos: reintentar no cambiaría el resultado.
-  const CODIGOS_DEFINITIVOS = ['formato-no-permitido', 'archivo-muy-grande', 'archivo-vacio', 'peticion-invalida'];
+  const CODIGOS_DEFINITIVOS = ['formato-no-permitido', 'archivo-muy-grande', 'archivo-vacio', 'peticion-invalida', 'foto-eliminada'];
 
   const el = {
     btnTomar: document.getElementById('btn-tomar'),
@@ -63,6 +63,8 @@
     btnOtra: document.getElementById('btn-otra'),
     btnReintentarSubida: document.getElementById('btn-reintentar-subida'),
     btnReintentarPendientes: document.getElementById('btn-reintentar-pendientes'),
+    avisoPendientes: document.getElementById('aviso-pendientes'),
+    avisoPendientesTexto: document.getElementById('aviso-pendientes-texto'),
     seccionConfirmacion: document.getElementById('seccion-confirmacion'),
     tituloConfirmacion: document.getElementById('titulo-confirmacion'),
     textoConfirmacion: document.getElementById('texto-confirmacion'),
@@ -76,6 +78,8 @@
     // Galería
     btnsVerGaleria: document.querySelectorAll('.btn-ver-galeria'),
     btnVolverInicio: document.getElementById('btn-volver-inicio'),
+    transicionInicio: document.getElementById('transicion-inicio'),
+    bienvenida: document.getElementById('bienvenida'),
     seccionGaleria: document.getElementById('seccion-galeria'),
     tituloGaleria: document.getElementById('titulo-galeria'),
     galeriaVacia: document.getElementById('galeria-vacia'),
@@ -99,12 +103,26 @@
     visorSiguiente: document.getElementById('visor-siguiente'),
     visorCerrar: document.getElementById('visor-cerrar'),
     visorGuardar: document.getElementById('visor-guardar'),
+    visorEliminar: document.getElementById('visor-eliminar'),
     // Cuadro de diálogo
     dialogo: document.getElementById('dialogo'),
     dialogoIcono: document.getElementById('dialogo-icono'),
     dialogoTitulo: document.getElementById('dialogo-titulo'),
     dialogoTexto: document.getElementById('dialogo-texto'),
     dialogoAviso: document.getElementById('dialogo-aviso'),
+    dialogoCampo: document.getElementById('dialogo-campo'),
+    dialogoError: document.getElementById('dialogo-error'),
+    dialogoAyuda: document.getElementById('dialogo-ayuda'),
+    dialogoAlternativa: document.getElementById('dialogo-alternativa'),
+    dialogoAyudaTexto: document.getElementById('dialogo-ayuda-texto'),
+    dialogoAnillos: document.getElementById('dialogo-anillos'),
+    dialogoAcciones: document.getElementById('dialogo-acciones'),
+    dialogoSegundoPlano: document.getElementById('dialogo-segundo-plano'),
+    dialogoVivo: document.getElementById('dialogo-vivo'),
+    organizadorAviso: document.getElementById('organizador-aviso'),
+    btnSalirOrganizador: document.getElementById('btn-salir-organizador'),
+    btnOrganizador: document.getElementById('btn-organizador'),
+    btnSonido: document.getElementById('btn-sonido'),
     dialogoAceptar: document.getElementById('dialogo-aceptar'),
     dialogoCancelar: document.getElementById('dialogo-cancelar'),
     // Cámara integrada
@@ -149,6 +167,10 @@
   //   - miniaturaUrl: referencia local a una copia pequeña, para la cuadrícula.
   //   - idSubida: id aleatorio y ESTABLE (32 caracteres) que se envía en cada
   //     intento; el servidor lo usa para no guardar la misma foto dos veces.
+  //   - llaveEliminacion: llave secreta (43 caracteres) que NUNCA sale del
+  //     teléfono al subir: solo se envía su huella (verificador). Sirve para
+  //     que solo este teléfono pueda eliminar la foto después.
+  //   - eliminable: el servidor confirmó que guardó el verificador.
   //   - estadoSubida: 'en-espera' | 'preparando' | 'subiendo' | 'guardada' |
   //     'sin-confirmar' | 'desactivadas' | 'rechazada'.
   //   - jpeg: { blob, ancho, alto } optimizado; se conserva para reintentar.
@@ -344,6 +366,8 @@
         url: URL.createObjectURL(archivo),
         miniaturaUrl: null,
         idSubida: nuevoIdSubida(),
+        llaveEliminacion: nuevaLlaveEliminacion(),
+        eliminable: false,
         estadoSubida: 'en-espera',
         mensajeSubida: '',
         intentoSubida: 0,
@@ -351,6 +375,7 @@
         jpeg: null
       };
       fotosConfirmadas.push(foto);
+      sonidos.reproducir('agregar'); // agregada a «Mi galería» (aún no compartida)
 
       // La miniatura se genera aparte; mientras tanto la galería usa la original.
       const nuevaFoto = foto;
@@ -382,6 +407,7 @@
     // En el teléfono la vista previa pudo quedar desplazada hacia abajo.
     window.scrollTo(0, 0);
     el.tituloConfirmacion.focus({ preventScroll: true });
+    mostrarAnimacionEnvio(foto); // anillos mientras el servidor la recibe
   }
 
   // Vuelve a la pantalla inicial para elegir otra fotografía,
@@ -477,6 +503,53 @@
     history.pushState({ pantalla: 'galeria' }, '');
   }
 
+  // ---- Transición «Volver al inicio» con la paloma ----
+  // Decorativa: la navegación ocurre enseguida debajo de la pantalla de la
+  // paloma (no se alarga el regreso). Pulsaciones repetidas se ignoran.
+  const transicionPaloma = { activa: false, tiempos: [] };
+
+  function volverAlInicioConPaloma() {
+    if (transicionPaloma.activa) return;
+    const pantalla = el.transicionInicio;
+    if (!pantalla) { volverAlInicio(); return; }
+    let reducido = false;
+    try { reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { reducido = false; }
+    transicionPaloma.activa = true;
+    // Seguro: pase lo que pase, la pantalla de la paloma se quita (nunca bloquea).
+    transicionPaloma.tiempos = [setTimeout(terminarTransicionPaloma, 3500)];
+    try {
+      pantalla.classList.remove('saliendo', 'visible');
+      pantalla.hidden = false;
+      void pantalla.offsetWidth; // reinicia las animaciones de cada pieza
+      pantalla.classList.add('visible');
+      document.body.classList.add('transicion-abierta');
+      sonidos.reproducir('arrullo'); // solo si los sonidos están activados
+      // Navegación real enseguida (debajo); la paloma se forma, aletea y se va.
+      transicionPaloma.tiempos.push(
+        setTimeout(volverAlInicio, reducido ? 120 : 450),
+        setTimeout(function () { pantalla.classList.add('saliendo'); }, reducido ? 450 : 1900),
+        setTimeout(terminarTransicionPaloma, reducido ? 700 : 2300)
+      );
+    } catch (e) {
+      terminarTransicionPaloma();
+      volverAlInicio();
+    }
+  }
+
+  function terminarTransicionPaloma() {
+    transicionPaloma.tiempos.forEach(clearTimeout);
+    transicionPaloma.tiempos = [];
+    el.transicionInicio.hidden = true;
+    el.transicionInicio.classList.remove('visible', 'saliendo');
+    document.body.classList.remove('transicion-abierta');
+    transicionPaloma.activa = false;
+  }
+
+  // Si el invitado sale de la página durante la transición, el arrullo se apaga.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && transicionPaloma.activa) sonidos.detener();
+  });
+
   function volverAlInicio() {
     if (history.state && history.state.pantalla === 'galeria') {
       history.back(); // el evento popstate muestra el inicio
@@ -494,6 +567,7 @@
     el.visorContador.textContent = (indice + 1) + ' de ' + total + ' · ' + etiquetaEstado(foto).texto;
     el.visorAnterior.disabled = indice === 0;
     el.visorSiguiente.disabled = indice === total - 1;
+    actualizarBotonEliminar(foto);
     // Foto compartida recuperada de una visita anterior: en el teléfono solo
     // queda su miniatura; la foto completa se pide al servidor.
     if (!foto.archivo && !foto.jpeg && !foto.urlGrande && foto.estadoSubida === 'guardada' && foto.referencia) {
@@ -741,6 +815,64 @@
     return agregadas;
   }
 
+  // Quita una foto de la galería compartida de este teléfono (la eliminó quien
+  // la compartió). Devuelve true si estaba.
+  function quitarFotoCompartida(ref) {
+    const d = compartida.datos[ref];
+    const posicion = compartida.orden.indexOf(ref);
+    if (posicion === -1 && !d) return false;
+    if (posicion !== -1) compartida.orden.splice(posicion, 1);
+    if (d) {
+      if (d.elemento) {
+        if (compartida.observador && d.elemento.firstChild) compartida.observador.unobserve(d.elemento.firstChild);
+        d.elemento.remove();
+      }
+      if (d.miniaturaUrl) URL.revokeObjectURL(d.miniaturaUrl);
+      if (d.fotoUrl) URL.revokeObjectURL(d.fotoUrl);
+      delete compartida.datos[ref];
+    }
+    const grande = compartida.fotosGrandes.indexOf(ref);
+    if (grande !== -1) compartida.fotosGrandes.splice(grande, 1);
+    if (guardado.ref === ref) {
+      if (guardado.temporizador) clearTimeout(guardado.temporizador);
+      guardado.ref = null;
+      guardado.estado = 'normal';
+      guardado.temporizador = null;
+    }
+    if (posicion !== -1 && compartida.total > 0) compartida.total--;
+    // Alguien la estaba viendo en grande: se cierra el visor con un aviso.
+    if (fuenteVisor === 'compartida' && refVisor === ref && !el.visor.hidden) {
+      cerrarVisorUI();
+      if (history.state && history.state.pantalla === 'visor') history.back();
+      mostrarEstadoCompartida('Esa fotografía fue eliminada por quien la compartió.', '');
+    }
+    el.compartidaCuadricula.hidden = compartida.orden.length === 0;
+    if (compartida.cargada && compartida.orden.length === 0 && !compartida.siguiente) {
+      mostrarEstadoCompartida('Todavía no hay fotografías compartidas. ¡Sé la primera persona en compartir una!', '');
+    }
+    actualizarControlesCompartida();
+    return true;
+  }
+
+  // Aplica la lista de fotos eliminadas que envía el servidor (por quien la
+  // compartió o por los organizadores). Si era de este teléfono, también sale
+  // de «Mi galería», porque ya no existe en la galería de todos.
+  function aplicarEliminadas(refs) {
+    if (!Array.isArray(refs)) return;
+    refs.forEach(function (ref) {
+      if (typeof ref !== 'string' || !PATRON_REF_PUBLICA.test(ref)) return;
+      quitarFotoCompartida(ref);
+      const local = fotoLocalDe(ref);
+      if (local && !local.eliminando) {
+        if (fuenteVisor === 'local' && !el.visor.hidden && fotosConfirmadas[indiceVisor] === local) {
+          cerrarVisorUI();
+          if (history.state && history.state.pantalla === 'visor') history.back();
+        }
+        quitarDeMiGaleria(local);
+      }
+    });
+  }
+
   // Primera carga y «Actualizar galería»: vuelve a pedir la primera página.
   // Las miniaturas ya descargadas se reutilizan.
   async function cargarGaleriaCompartida() {
@@ -806,6 +938,7 @@
     }
     if (!Array.isArray(r.json.fotos)) return;
 
+    aplicarEliminadas(r.json.eliminadas);
     const nuevas = agregarFotosCompartidas(r.json.fotos, 'inicio');
     compartida.version = r.json.version;
     compartida.total = r.json.total;
@@ -930,6 +1063,7 @@
       distintivo.textContent = 'Tuya';
       boton.appendChild(distintivo);
     }
+    pintarPapelera(ref); // solo en modo organizador
   }
 
   // -- Miniaturas: solo las visibles, en lotes pequeños y de una petición a la vez --
@@ -1106,6 +1240,7 @@
   }
 
   function estadoGuardar(ref, estado, texto) {
+    if (estado === 'error') sonidos.reproducir('error');
     if (guardado.temporizador) clearTimeout(guardado.temporizador);
     guardado.temporizador = null;
     guardado.ref = estado === 'normal' ? null : ref;
@@ -1125,6 +1260,7 @@
 
   // Al cambiar de foto en el visor, el botón muestra el estado de la foto nueva.
   function mostrarBotonGuardar(ref) {
+    actualizarBotonEliminarCompartida(ref); // solo en modo organizador
     el.visorGuardar.hidden = false;
     if (guardado.ref === ref && guardado.estado === 'preparando') {
       estadoGuardar(ref, 'preparando', 'Preparando…');
@@ -1306,6 +1442,32 @@
     }).join('');
   }
 
+  // Llave de eliminación: 32 bytes aleatorios en base64url (43 caracteres).
+  function nuevaLlaveEliminacion() {
+    try {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      return btoa(String.fromCharCode.apply(null, bytes))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    } catch (e) {
+      return null; // sin llave: la foto se comparte igual, pero no se podrá eliminar
+    }
+  }
+
+  // Verificador = SHA-256 de la llave (hexadecimal). Es lo único que recibe el
+  // servidor al subir. Requiere HTTPS (o localhost); si no, null.
+  async function verificadorDe(llave) {
+    if (typeof llave !== 'string' || !window.crypto || !crypto.subtle) return null;
+    try {
+      const huella = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(llave));
+      return Array.prototype.map.call(new Uint8Array(huella), function (b) {
+        return ('0' + b.toString(16)).slice(-2);
+      }).join('');
+    } catch (e) {
+      return null;
+    }
+  }
+
   function esperar(ms) {
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
@@ -1426,7 +1588,7 @@
     if (j.ok === true) {
       // Confirmación real: el servidor guardó exactamente esta foto.
       if (j.id === foto.idSubida && j.tamano === foto.jpeg.blob.size) {
-        return { final: true, estado: 'guardada', referencia: j.referencia };
+        return { final: true, estado: 'guardada', referencia: j.referencia, eliminable: j.eliminable === true };
       }
       return { final: true, estado: 'sin-confirmar', reintentable: true };
     }
@@ -1486,8 +1648,17 @@
     // 2. Enviar, reintentando con el MISMO id.
     let cuerpo;
     try {
+      // Fotos guardadas antes de esta versión: se les crea su llave ahora y se
+      // guarda en el teléfono ANTES de enviarla (si no, no se podría eliminar).
+      if (!foto.llaveEliminacion) {
+        foto.llaveEliminacion = nuevaLlaveEliminacion();
+        await guardarEnMiGaleria(foto);
+      }
+      const verificador = await verificadorDe(foto.llaveEliminacion);
       const base64 = await blobABase64(foto.jpeg.blob);
-      cuerpo = JSON.stringify({ clave: CLAVE_EVENTO, id: foto.idSubida, tipo: 'image/jpeg', datos: base64 });
+      const envio = { clave: CLAVE_EVENTO, id: foto.idSubida, tipo: 'image/jpeg', datos: base64 };
+      if (verificador) envio.verificador = verificador;
+      cuerpo = JSON.stringify(envio);
     } catch (e) {
       cambiarEstado(foto, 'sin-confirmar', { reintentable: true });
       return;
@@ -1502,6 +1673,7 @@
           // reconocerla allí (distintivo «Tuya») y reutilizar la imagen local.
           // Se asigna ANTES de cambiar el estado para que «Mi galería» la guarde.
           if (typeof veredicto.referencia === 'string') foto.referencia = veredicto.referencia;
+          foto.eliminable = veredicto.eliminable === true;
           foto.jpeg = null; // ya no se necesita
         }
         cambiarEstado(foto, veredicto.estado, veredicto);
@@ -1554,6 +1726,7 @@
 
   function cambiarEstado(foto, nuevoEstado, datos) {
     datos = datos || {};
+    const anterior = foto.estadoSubida;
     foto.estadoSubida = nuevoEstado;
     foto.mensajeSubida = datos.mensaje || '';
     foto.intentoSubida = datos.intento || 0;
@@ -1566,6 +1739,131 @@
     if (boton) actualizarMiniatura(foto, boton);
     actualizarBotonReintentarPendientes();
     if (fuenteVisor === 'local' && indiceVisor >= 0 && fotosConfirmadas[indiceVisor] === foto) mostrarFotoEnVisor(indiceVisor);
+    if (nuevoEstado === 'subiendo') actualizarAnimacionEnvio(foto);
+    // Solo al terminar un envío (no en cada reintento ni al recuperar «Mi galería»).
+    if ((anterior === 'subiendo' || anterior === 'preparando') && nuevoEstado !== 'subiendo' && nuevoEstado !== 'preparando') {
+      anunciarResultadoSubida(foto, nuevoEstado);
+    }
+  }
+
+  // ---- Animación de anillos mientras se comparte (una o varias fotos) ----
+  // Se muestra solo después de que el invitado confirma compartir o reintentar,
+  // y dura lo que tarda el servidor de verdad (sin esperas inventadas). Con
+  // varias fotos, el resultado se muestra cuando terminan TODAS.
+  const envioVisible = { fotos: null };
+
+  function mostrarAnimacionEnvio(fotos) {
+    fotos = (Array.isArray(fotos) ? fotos : [fotos]).filter(function (f) { return f && enProceso(f); });
+    if (fotos.length === 0 || envioVisible.fotos) return;
+    envioVisible.fotos = fotos;
+    const varias = fotos.length > 1;
+    mostrarDialogo({
+      envio: true,
+      titulo: varias ? 'Enviando nuestros recuerdos…' : 'Enviando nuestro recuerdo…',
+      texto: varias
+        ? 'Tus ' + fotos.length + ' fotografías están llegando a nuestra galería'
+        : 'Tu fotografía está llegando a nuestra galería'
+    }).then(function () {
+      if (envioVisible.fotos === fotos) envioVisible.fotos = null; // la cerró «Seguir navegando»
+    });
+  }
+
+  function enEnvioVisible(foto) {
+    return !!envioVisible.fotos && envioVisible.fotos.indexOf(foto) !== -1 &&
+      !el.dialogo.hidden && !el.dialogoAnillos.hidden;
+  }
+
+  // Si la conexión está lenta y hay reintentos, se dice con honestidad.
+  function actualizarAnimacionEnvio(foto) {
+    if (!enEnvioVisible(foto)) return;
+    if (foto.estadoSubida === 'subiendo' && foto.intentoSubida > 0) {
+      el.dialogoTexto.textContent = 'La conexión está lenta. Seguimos intentando, no cierres esta página.';
+    }
+  }
+
+  function terminarAnimacionEnvio(fotos) {
+    envioVisible.fotos = null;
+    const total = fotos.length;
+    const compartidas = fotos.filter(function (f) { return f.estadoSubida === 'guardada'; }).length;
+    if (compartidas === total) {
+      // Transición breve de los anillos (no simula la subida: ya terminó).
+      el.dialogoAnillos.classList.add('listo');
+      el.dialogoVivo.textContent = total > 1 ? '¡Recuerdos compartidos!' : '¡Recuerdo compartido!';
+      setTimeout(function () {
+        mostrarDialogo({
+          icono: 'confirmado',
+          exito: true,
+          sonido: 'compartir', // campanita, una sola vez
+          titulo: total > 1 ? '¡Recuerdos compartidos!' : '¡Recuerdo compartido!',
+          texto: total > 1
+            ? 'Tus ' + total + ' fotografías ya forman parte de nuestra galería.'
+            : 'Tu fotografía ya forma parte de nuestra galería.',
+          aceptar: 'Listo'
+        });
+      }, 450);
+      return;
+    }
+    const pendientes = fotos.filter(puedeReintentarse).length;
+    const aviso = pendientes > 0
+      ? (pendientes === 1 ? 'La fotografía sigue' : 'Las fotografías siguen') +
+        ' guardada' + (pendientes === 1 ? '' : 's') + ' en este teléfono: puedes reintentar cuando quieras, sin duplicarla' + (pendientes === 1 ? '' : 's') + '.'
+      : '';
+    if (total === 1) {
+      const t = textosEstado(fotos[0]);
+      mostrarDialogo({
+        icono: 'repetir',
+        sonido: fotos[0].estadoSubida === 'desactivadas' ? 'advertencia' : 'error',
+        titulo: t.titulo,
+        texto: t.texto,
+        aviso: aviso,
+        aceptar: 'Entendido'
+      });
+      return;
+    }
+    const todasDesactivadas = fotos.every(function (f) { return f.estadoSubida === 'desactivadas'; });
+    mostrarDialogo({
+      icono: 'repetir',
+      sonido: compartidas > 0 || todasDesactivadas ? 'advertencia' : 'error',
+      titulo: compartidas > 0
+        ? 'Se compartieron ' + compartidas + ' de ' + total
+        : (todasDesactivadas ? 'Subidas temporalmente desactivadas' : 'No se pudieron compartir'),
+      texto: todasDesactivadas
+        ? 'En este momento no se están recibiendo fotografías.'
+        : 'Revisa tu conexión. Las que no se enviaron aparecen como «No enviada» en «Mi galería».',
+      aviso: aviso,
+      aceptar: 'Entendido'
+    });
+  }
+
+  // Sonido (y, para la foto que se está viendo, una alerta de éxito) cuando
+  // el servidor confirma —o rechaza— una subida. Nunca se anuncia como
+  // compartida una foto que el servidor no confirmó.
+  function anunciarResultadoSubida(foto, estadoFinal) {
+    // Con la animación de anillos abierta para esta foto: ella muestra el
+    // resultado cuando terminan todas las fotos de ese envío.
+    if (enEnvioVisible(foto)) {
+      if (!envioVisible.fotos.some(enProceso)) terminarAnimacionEnvio(envioVisible.fotos);
+      return;
+    }
+    if (estadoFinal === 'guardada') {
+      const aLaVista = foto === fotoActual && !el.seccionConfirmacion.hidden && el.dialogo.hidden;
+      if (aLaVista) {
+        mostrarDialogo({
+          icono: 'confirmado',
+          exito: true,
+          sonido: 'compartir',
+          titulo: '¡Recuerdo compartido!',
+          texto: 'Tu fotografía ya forma parte de nuestra galería.',
+          aceptar: 'Listo'
+        });
+      } else {
+        sonidos.reproducir('compartir');
+      }
+    } else if (estadoFinal === 'desactivadas') {
+      sonidos.reproducir('advertencia');
+    } else if (estadoFinal === 'rechazada' || estadoFinal === 'sin-confirmar') {
+      sonidos.reproducir('error'); // el mensaje claro ya aparece en pantalla
+    }
   }
 
   // Textos de la pantalla de confirmación para cada estado.
@@ -1636,10 +1934,11 @@
     fotosConfirmadas.forEach(function (foto) {
       if (puedeReintentarse(foto)) pendientes++;
     });
-    el.btnReintentarPendientes.hidden = pendientes === 0;
-    el.btnReintentarPendientes.textContent = pendientes === 1
-      ? 'Reintentar envío pendiente'
-      : 'Reintentar envíos pendientes (' + pendientes + ')';
+    // Aviso discreto arriba de las fotos, junto a lo que arregla.
+    el.avisoPendientes.hidden = pendientes === 0;
+    el.avisoPendientesTexto.textContent = pendientes === 1
+      ? '1 fotografía sin enviar'
+      : pendientes + ' fotografías sin enviar';
   }
 
   // Al recuperar la conexión, se reintentan solas las que no se confirmaron
@@ -1656,7 +1955,7 @@
   // guardar en el teléfono.
   window.addEventListener('beforeunload', function (evento) {
     const hayPendientes = fotosConfirmadas.some(function (foto) {
-      return enProceso(foto) || (foto.estadoSubida !== 'guardada' && foto.reintentable && !foto.copiaLocal);
+      return enProceso(foto) || foto.eliminando || (foto.estadoSubida !== 'guardada' && foto.reintentable && !foto.copiaLocal);
     });
     if (hayPendientes) {
       evento.preventDefault();
@@ -1799,6 +2098,8 @@
     const ficha = {
       id: foto.id,
       idSubida: foto.idSubida,
+      llaveEliminacion: foto.llaveEliminacion || null,
+      eliminable: foto.eliminable === true,
       estadoSubida: foto.estadoSubida,
       mensajeSubida: foto.mensajeSubida || '',
       reintentable: foto.reintentable !== false,
@@ -1846,6 +2147,8 @@
       miniaturaBlob: miniatura,
       datosMiniatura: ficha.miniatura || null,
       idSubida: ficha.idSubida,
+      llaveEliminacion: ficha.llaveEliminacion || null,
+      eliminable: ficha.eliminable === true,
       estadoSubida: estado,
       mensajeSubida: mensaje,
       intentoSubida: 0,
@@ -1897,9 +2200,263 @@
     Object.keys(compartida.datos).forEach(pintarMiniatura);
   }
 
+  /* ---------- Sonidos (Web Audio API: originales, sin archivos ni librerías) ---------- */
+
+  // Efectos breves y suaves generados en el navegador.
+  //   - Empiezan ACTIVADOS; el invitado puede silenciarlos con el botón del pie
+  //     y la preferencia se recuerda en este navegador (localStorage). Por las
+  //     reglas de los navegadores, el primer sonido llega después del primer toque.
+  //   - Volumen ~25 %, un solo sonido a la vez, nunca en bucle.
+  //   - Safari y Android solo dejan sonar después de un toque: el audio se
+  //     «desbloquea» en cada toque. Si el navegador lo impide, no suena y la
+  //     aplicación sigue funcionando igual.
+  // Uso: sonidos.reproducir('agregar' | 'compartir' | 'eliminar' | 'error' | 'advertencia' | 'arrullo').
+  // 'arrullo' es un ARCHIVO de audio real (assets/sonidos/arrullo-paloma.mp3):
+  // se carga con el primer toque (si los sonidos están activados) y, si falta
+  // o no se puede decodificar, simplemente no suena.
+  const sonidos = (function () {
+    const PREFERENCIA = 'hm-sonidos';
+    const VOLUMEN = 0.25;
+    const PAUSA_MISMO_SONIDO_MS = 700; // no se repite el mismo sonido seguido
+    let activados = false;
+    try { activados = localStorage.getItem(PREFERENCIA) !== 'silenciados'; } catch (e) { activados = true; }
+    let contexto = null;
+    let salida = null;
+    let actual = null;
+    let ultimo = { nombre: '', en: 0 };
+    // Archivos de audio locales (sin enlaces externos).
+    const ARCHIVOS = { arrullo: 'assets/sonidos/arrullo-paloma.mp3?v=1' };
+    const bufers = {}; // nombre → AudioBuffer | 'cargando' | 'falta'
+    let fuenteActual = null;
+
+    function precargar(nombre) {
+      if (bufers[nombre] || !ARCHIVOS[nombre]) return;
+      const c = obtenerContexto();
+      if (!c || typeof fetch !== 'function') return;
+      bufers[nombre] = 'cargando';
+      fetch(ARCHIVOS[nombre]).then(function (r) {
+        if (!r.ok) throw new Error('sin-archivo');
+        return r.arrayBuffer();
+      }).then(function (datos) {
+        // Forma con callbacks: compatible con Safari antiguo.
+        return new Promise(function (resolve, reject) { c.decodeAudioData(datos, resolve, reject); });
+      }).then(function (bufer) {
+        bufers[nombre] = bufer;
+      }).catch(function () {
+        bufers[nombre] = 'falta'; // la app sigue igual, sin este sonido
+      });
+    }
+
+    function obtenerContexto() {
+      if (contexto) return contexto;
+      const Clase = window.AudioContext || window.webkitAudioContext;
+      if (!Clase) return null;
+      try {
+        contexto = new Clase();
+        salida = contexto.createGain();
+        salida.gain.value = VOLUMEN;
+        salida.connect(contexto.destination);
+      } catch (e) {
+        contexto = null;
+      }
+      return contexto;
+    }
+
+    // Debe llamarse dentro de un toque del usuario (requisito de Safari).
+    function desbloquear() {
+      if (!activados) return;
+      const c = obtenerContexto();
+      if (!c) return;
+      try {
+        if (c.state !== 'running') c.resume().catch(function () {});
+        // iPhone antiguo: un búfer silencioso dentro del toque habilita el audio.
+        const fuente = c.createBufferSource();
+        fuente.buffer = c.createBuffer(1, 1, 22050);
+        fuente.connect(c.destination);
+        fuente.start(0);
+      } catch (e) { /* sin audio */ }
+      precargar('arrullo'); // se descarga una vez, solo si los sonidos están activados
+    }
+
+    // Una nota con envolvente suave (sin clics al empezar o terminar).
+    function nota(c, destino, frecuencia, inicio, duracion, opciones) {
+      const oscilador = c.createOscillator();
+      const volumen = c.createGain();
+      oscilador.type = opciones.tipo || 'sine';
+      oscilador.frequency.setValueAtTime(frecuencia, inicio);
+      if (opciones.hasta) oscilador.frequency.exponentialRampToValueAtTime(opciones.hasta, inicio + duracion);
+      volumen.gain.setValueAtTime(0.0001, inicio);
+      volumen.gain.exponentialRampToValueAtTime(opciones.volumen || 0.5, inicio + (opciones.ataque || 0.012));
+      volumen.gain.exponentialRampToValueAtTime(0.0001, inicio + duracion);
+      oscilador.connect(volumen);
+      volumen.connect(destino);
+      oscilador.start(inicio);
+      oscilador.stop(inicio + duracion + 0.05);
+    }
+
+    // Campanita: nota principal + un parcial agudo muy suave.
+    function campana(c, destino, frecuencia, inicio, duracion, volumen) {
+      nota(c, destino, frecuencia, inicio, duracion, { volumen: volumen });
+      nota(c, destino, frecuencia * 2.76, inicio, duracion * 0.45, { volumen: volumen * 0.16 });
+    }
+
+    // Cada receta programa sus notas y devuelve su duración (segundos).
+    const RECETAS = {
+      // Agregar a «Mi galería»: un «pop» suave que sube.
+      agregar: function (c, d, t) {
+        nota(c, d, 660, t, 0.16, { hasta: 990, volumen: 0.32 });
+        return 0.22;
+      },
+      // Compartida en Drive: campanita de tres notas (do-mi-sol).
+      compartir: function (c, d, t) {
+        campana(c, d, 1046.5, t, 0.9, 0.38);
+        campana(c, d, 1318.5, t + 0.09, 0.9, 0.32);
+        campana(c, d, 1568.0, t + 0.18, 1.1, 0.28);
+        return 1.3;
+      },
+      // Eliminada (confirmado por el servidor): un tono que baja.
+      eliminar: function (c, d, t) {
+        nota(c, d, 520, t, 0.26, { hasta: 230, tipo: 'triangle', volumen: 0.38 });
+        return 0.3;
+      },
+      // Error: dos tonos graves, cortos y discretos.
+      error: function (c, d, t) {
+        nota(c, d, 330, t, 0.11, { tipo: 'triangle', volumen: 0.36 });
+        nota(c, d, 247, t + 0.12, 0.16, { tipo: 'triangle', volumen: 0.36 });
+        return 0.3;
+      },
+      // Advertencia: una sola nota suave y redonda.
+      advertencia: function (c, d, t) {
+        nota(c, d, 587.3, t, 0.24, { volumen: 0.3 });
+        nota(c, d, 880, t, 0.24, { volumen: 0.07 });
+        return 0.28;
+      },
+      // Arrullo de paloma (archivo real). Máximo ~2 s con salida suave.
+      // La grabación es suave (pico ~24 %): se compensa para igualar a los demás.
+      arrullo: function (c, d, t) {
+        const bufer = bufers.arrullo;
+        if (!bufer || typeof bufer === 'string') return 0;
+        const fuente = c.createBufferSource();
+        fuente.buffer = bufer;
+        fuente.connect(d);
+        const dura = Math.min(bufer.duration, 2.2);
+        const AJUSTE = 2.2;
+        d.gain.setValueAtTime(AJUSTE, t);
+        d.gain.setValueAtTime(AJUSTE, t + Math.max(0, dura - 0.35));
+        d.gain.linearRampToValueAtTime(0, t + dura);
+        fuente.start(t);
+        fuente.stop(t + dura + 0.05);
+        fuenteActual = fuente;
+        return dura;
+      }
+    };
+
+    function sonar(c, nombre) {
+      // Un solo sonido a la vez: el anterior se apaga en 40 ms.
+      if (actual) {
+        const previo = actual;
+        try {
+          previo.gain.cancelScheduledValues(c.currentTime);
+          previo.gain.setValueAtTime(previo.gain.value, c.currentTime);
+          previo.gain.linearRampToValueAtTime(0, c.currentTime + 0.04);
+        } catch (e) { /* ya terminó */ }
+        setTimeout(function () { try { previo.disconnect(); } catch (e) { /* ya desconectado */ } }, 120);
+      }
+      const grupo = c.createGain();
+      grupo.connect(salida);
+      actual = grupo;
+      const duracion = RECETAS[nombre](c, grupo, c.currentTime + 0.01);
+      if (!duracion) { actual = null; try { grupo.disconnect(); } catch (e) { /* nada */ } return; }
+      setTimeout(function () {
+        if (actual === grupo) actual = null;
+        try { grupo.disconnect(); } catch (e) { /* ya desconectado */ }
+      }, (duracion + 0.3) * 1000);
+    }
+
+    // Detiene con suavidad lo que esté sonando (p. ej. si se sale de la transición).
+    function detener() {
+      if (!actual || !contexto) return;
+      const grupo = actual;
+      actual = null;
+      try {
+        grupo.gain.cancelScheduledValues(contexto.currentTime);
+        grupo.gain.setValueAtTime(grupo.gain.value, contexto.currentTime);
+        grupo.gain.linearRampToValueAtTime(0, contexto.currentTime + 0.08);
+      } catch (e) { /* ya terminó */ }
+      setTimeout(function () {
+        try { if (fuenteActual) fuenteActual.stop(); } catch (e) { /* ya terminó */ }
+        try { grupo.disconnect(); } catch (e) { /* ya desconectado */ }
+      }, 120);
+    }
+
+    function reproducir(nombre) {
+      if (!activados || !RECETAS[nombre]) return;
+      if (ARCHIVOS[nombre]) {
+        const b = bufers[nombre];
+        if (!b) { precargar(nombre); return; }  // primera vez: se carga; no suena tarde
+        if (typeof b === 'string') return;       // cargando o no disponible
+      }
+      const ahora = Date.now();
+      if (ultimo.nombre === nombre && ahora - ultimo.en < PAUSA_MISMO_SONIDO_MS) return;
+      ultimo = { nombre: nombre, en: ahora };
+      const c = obtenerContexto();
+      if (!c) return;
+      try {
+        if (c.state === 'running') {
+          sonar(c, nombre);
+        } else {
+          // Si el navegador no lo permite ahora, se omite (no suena tarde).
+          c.resume().then(function () {
+            if (Date.now() - ahora < 400) sonar(c, nombre);
+          }).catch(function () {});
+        }
+      } catch (e) { /* sin sonido: la aplicación sigue igual */ }
+    }
+
+    function cambiar(valor) {
+      activados = !!valor;
+      try { localStorage.setItem(PREFERENCIA, activados ? 'activados' : 'silenciados'); } catch (e) { /* solo esta visita */ }
+      if (activados) desbloquear();
+      else if (contexto && contexto.state === 'running') contexto.suspend().catch(function () {});
+      return activados;
+    }
+
+    return {
+      reproducir: reproducir,
+      detener: detener,
+      desbloquear: desbloquear,
+      cambiar: cambiar,
+      estanActivados: function () { return activados; }
+    };
+  })();
+
+  function actualizarBotonSonido() {
+    const si = sonidos.estanActivados();
+    el.btnSonido.classList.toggle('activo', si);
+    el.btnSonido.setAttribute('aria-pressed', si ? 'true' : 'false');
+    el.btnSonido.setAttribute('aria-label', si ? 'Silenciar sonidos' : 'Activar sonidos');
+    el.btnSonido.title = si ? 'Sonidos activados' : 'Sonidos silenciados';
+  }
+
   /* ---------- Cuadro de diálogo (estilo SweetAlert, con los colores de la boda) ---------- */
 
-  // mostrarDialogo({ icono, exito, titulo, texto, aviso, aceptar, cancelar })
+  // mostrarDialogo({ icono, exito, titulo, texto, aviso, aceptar, cancelar, campo, sonido,
+  //                  alConfirmar, textoCargando })
+  //   sonido: 'compartir' | 'eliminar' | 'error' | 'advertencia' (también anima el ícono).
+  //   alConfirmar (como preConfirm + showLoaderOnConfirm de SweetAlert2): función
+  //   asíncrona que se ejecuta al pulsar «aceptar». Mientras trabaja, el botón
+  //   muestra un spinner y textoCargando, y el cuadro NO se puede cerrar ni
+  //   volver a confirmar. Debe devolver { ok: true, … } (el cuadro se cierra y
+  //   la promesa entrega ese objeto) o { ok: false, mensaje, reintentable }
+  //   (el cuadro sigue abierto con el mensaje y, si se puede, «Reintentar»).
+  //   mantenerMs + textoMantener (opcional, junto con alConfirmar): «mantener
+  //   para confirmar» al estilo de las consolas. Una barra se llena dentro del
+  //   botón mientras se mantiene presionado; al soltar antes de tiempo vuelve a
+  //   cero y NO pasa nada. Solo al llegar al 100 % se ejecuta alConfirmar.
+  //   Alternativa accesible: «Prefiero tocar una vez» (confirmación normal).
+  //   envio: true → animación de anillos en lugar del ícono, sin botones y sin
+  //   poder cerrarse por accidente (solo «Seguir navegando…» tras unos segundos).
+  //   La cierra quien la abrió, al recibir la respuesta real del servidor.
   // → Promise<boolean>: true si se pulsa «aceptar». Sin «cancelar» es un aviso
   // de un solo botón. Escape o tocar fuera de la tarjeta equivale a cancelar.
   let cerrarDialogoActual = null;
@@ -1909,6 +2466,7 @@
     const anterior = document.activeElement;
     el.dialogoIcono.style.setProperty('--icono', 'url("assets/iconos/' + (opciones.icono || 'corazon') + '.svg")');
     el.dialogoIcono.classList.toggle('dialogo-icono-exito', !!opciones.exito);
+    el.dialogoIcono.setAttribute('data-efecto', opciones.sonido || '');
     el.dialogoTitulo.textContent = opciones.titulo || '';
     el.dialogoTexto.textContent = opciones.texto || '';
     el.dialogoAviso.textContent = opciones.aviso || '';
@@ -1916,13 +2474,54 @@
     el.dialogoAceptar.textContent = opciones.aceptar || 'Aceptar';
     el.dialogoCancelar.textContent = opciones.cancelar || 'Cancelar';
     el.dialogoCancelar.hidden = !opciones.cancelar;
+    el.dialogoAceptar.hidden = false;
+    el.dialogoAceptar.disabled = false;
+    el.dialogoCancelar.disabled = false;
+    el.dialogoAceptar.classList.remove('cargando');
+    el.dialogoAceptar.removeAttribute('aria-busy');
+    el.dialogoError.textContent = '';
+    el.dialogoError.hidden = true;
+    el.dialogoAyuda.hidden = true;
+    el.dialogoAyuda.classList.remove('resaltar');
+    const envio = opciones.envio === true;
+    el.dialogoAnillos.hidden = !envio;
+    el.dialogoAnillos.classList.remove('listo');
+    el.dialogoIcono.hidden = envio;
+    el.dialogoAcciones.hidden = envio;
+    el.dialogoSegundoPlano.hidden = true;
+    el.dialogo.setAttribute('aria-busy', envio ? 'true' : 'false');
+    el.dialogoVivo.textContent = envio ? (opciones.titulo || '') + ' ' + (opciones.texto || '') : '';
+    el.dialogoAceptar.classList.remove('mantener', 'soltando');
+    el.dialogoAceptar.style.removeProperty('--progreso');
+    el.dialogoAceptar.removeAttribute('aria-describedby');
+    // Campo de texto opcional (modo organizador). Quien llama lee su valor y lo borra.
+    el.dialogoCampo.hidden = !opciones.campo;
+    el.dialogoCampo.value = '';
+    el.dialogoCampo.placeholder = opciones.campo || '';
+    el.dialogoCampo.setAttribute('aria-label', opciones.campo || '');
     el.dialogo.hidden = false;
     document.body.classList.add('dialogo-abierto');
-    // El foco empieza en la opción segura (Cancelar), o en el único botón.
-    (opciones.cancelar ? el.dialogoCancelar : el.dialogoAceptar).focus();
+    if (opciones.sonido) sonidos.reproducir(opciones.sonido);
+    // El foco empieza en el campo, en la opción segura (Cancelar) o en el único botón.
+    // Durante un envío no hay botones: el foco va al título.
+    (envio ? el.dialogoTitulo : (opciones.campo ? el.dialogoCampo : (opciones.cancelar ? el.dialogoCancelar : el.dialogoAceptar))).focus();
 
     return new Promise(function (resolve) {
       function terminar(respuesta) {
+        if (temporizadorSegundoPlano) clearTimeout(temporizadorSegundoPlano);
+        el.dialogoSegundoPlano.removeEventListener('click', alSegundoPlano);
+        el.dialogo.setAttribute('aria-busy', 'false');
+        soltarMantener(true);
+        prepararMantener(false);
+        el.dialogoAceptar.removeEventListener('pointerdown', iniciarMantener);
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (tipo) {
+          el.dialogoAceptar.removeEventListener(tipo, alSoltarPuntero);
+        });
+        el.dialogoAceptar.removeEventListener('keydown', alTeclaMantener);
+        el.dialogoAceptar.removeEventListener('keyup', alTeclaMantener);
+        el.dialogoAceptar.removeEventListener('contextmenu', evitarMenu);
+        el.dialogoAlternativa.removeEventListener('click', usarAlternativa);
+        window.removeEventListener('blur', alPerderFoco);
         el.dialogo.hidden = true;
         document.body.classList.remove('dialogo-abierto');
         el.dialogoAceptar.removeEventListener('click', alAceptar);
@@ -1933,51 +2532,618 @@
         if (anterior && document.body.contains(anterior) && anterior.focus) anterior.focus();
         resolve(respuesta);
       }
-      function alAceptar() { terminar(true); }
-      function alCancelar() { terminar(false); }
-      function alTocarFondo(e) { if (e.target === el.dialogo) terminar(false); }
+      // Mientras «alConfirmar» trabaja: sin cerrar, sin cancelar, sin repetir.
+      let ocupado = false;
+      // Envío de una foto: no se cierra por accidente (Escape, tocar fuera).
+      // Si tarda, aparece «Seguir navegando mientras se envía» (el envío sigue).
+      let temporizadorSegundoPlano = null;
+      function alSegundoPlano() { terminar(false); }
+      if (envio) {
+        temporizadorSegundoPlano = setTimeout(function () { el.dialogoSegundoPlano.hidden = false; }, 10000);
+        el.dialogoSegundoPlano.addEventListener('click', alSegundoPlano);
+      }
+      let textoAceptar = opciones.aceptar || 'Aceptar';
+
+      function ponerCargando(si) {
+        el.dialogoAceptar.disabled = si;
+        el.dialogoCancelar.disabled = si;
+        el.dialogoAceptar.classList.toggle('cargando', si);
+        if (si) el.dialogoAceptar.setAttribute('aria-busy', 'true');
+        else el.dialogoAceptar.removeAttribute('aria-busy');
+        el.dialogoAceptar.textContent = si ? (opciones.textoCargando || 'Procesando…') : textoAceptar;
+      }
+
+      // ---- «Mantener para confirmar» ----
+      const modoMantener = typeof opciones.alConfirmar === 'function' && opciones.mantenerMs > 0;
+      let mantenerActivo = false;
+      let llenado = null; // { inicio, raf } mientras se mantiene presionado
+
+      function prepararMantener(si) {
+        mantenerActivo = si;
+        el.dialogoAceptar.classList.toggle('mantener', si);
+        el.dialogoAyuda.hidden = !si;
+        if (si) {
+          el.dialogoAyudaTexto.textContent = 'Mantén presionado hasta que se llene la barra.';
+          el.dialogoAlternativa.textContent = 'Prefiero tocar una vez';
+          el.dialogoAceptar.setAttribute('aria-describedby', 'dialogo-ayuda');
+          textoAceptar = opciones.textoMantener || 'Mantener para confirmar';
+          el.dialogoAceptar.textContent = textoAceptar;
+          el.dialogoAceptar.setAttribute('data-texto', textoAceptar);
+        } else {
+          el.dialogoAceptar.removeAttribute('aria-describedby');
+          el.dialogoAceptar.removeAttribute('data-texto');
+          el.dialogoAceptar.style.removeProperty('--progreso');
+        }
+      }
+
+      function resaltarAyuda() {
+        el.dialogoAyuda.classList.remove('resaltar');
+        void el.dialogoAyuda.offsetWidth;
+        el.dialogoAyuda.classList.add('resaltar');
+      }
+
+      function iniciarMantener(e) {
+        if (!mantenerActivo || ocupado || llenado) return;
+        if (e.type === 'pointerdown' && e.button !== 0) return;
+        if (e.cancelable) e.preventDefault(); // sin selección de texto ni menú
+        if (e.pointerId !== undefined) {
+          try { el.dialogoAceptar.setPointerCapture(e.pointerId); } catch (error) { /* sin captura */ }
+        }
+        sonidos.desbloquear(); // prepara el audio dentro del toque (Safari)
+        el.dialogoAceptar.classList.remove('soltando');
+        llenado = { inicio: performance.now(), raf: 0 };
+        function paso(ahora) {
+          if (!llenado) return; // se soltó: nunca se completa sola
+          const p = Math.min(1, Math.max(0, (ahora - llenado.inicio) / opciones.mantenerMs));
+          el.dialogoAceptar.style.setProperty('--progreso', p.toFixed(3));
+          if (p >= 1) {
+            llenado = null;
+            completarMantener();
+            return;
+          }
+          llenado.raf = requestAnimationFrame(paso);
+        }
+        llenado.raf = requestAnimationFrame(paso);
+      }
+
+      // Al soltar antes de tiempo: la barra vuelve a cero y no pasa nada.
+      function soltarMantener(silencioso) {
+        if (!llenado) return;
+        cancelAnimationFrame(llenado.raf);
+        llenado = null;
+        el.dialogoAceptar.classList.add('soltando');
+        el.dialogoAceptar.style.setProperty('--progreso', '0');
+        if (!silencioso) resaltarAyuda();
+      }
+
+      function completarMantener() {
+        // Vibración breve (Android) solo si hubo un toque real del usuario.
+        try {
+          const toqueReal = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+          if (navigator.vibrate && toqueReal) navigator.vibrate(18);
+        } catch (e) { /* sin vibración */ }
+        prepararMantener(false); // ya confirmado: botón verde normal con spinner
+        confirmar();
+      }
+
+      function alSoltarPuntero() { soltarMantener(false); }
+      function alPerderFoco() { soltarMantener(true); }
+      function evitarMenu(e) { if (mantenerActivo) e.preventDefault(); }
+
+      // Teclado: mantener Espacio o Enter sobre el botón.
+      function alTeclaMantener(e) {
+        if (!mantenerActivo || (e.key !== ' ' && e.key !== 'Enter')) return;
+        e.preventDefault(); // evita el clic inmediato del teclado
+        if (e.type === 'keydown') {
+          if (!e.repeat) iniciarMantener(e);
+        } else {
+          soltarMantener(false);
+        }
+      }
+
+      // Alternativa accesible: confirmación normal de un toque. Desde ahí se
+      // puede volver al modo dinámico («mantener presionado»).
+      function usarAlternativa() {
+        if (ocupado || llenado) return;
+        if (!mantenerActivo) {
+          prepararMantener(true); // volver al modo dinámico
+          el.dialogoAceptar.focus();
+          return;
+        }
+        soltarMantener(true);
+        prepararMantener(false);
+        textoAceptar = opciones.aceptar || 'Aceptar';
+        el.dialogoAceptar.textContent = textoAceptar;
+        el.dialogoAyudaTexto.textContent = 'Confirma con un solo toque.';
+        el.dialogoAlternativa.textContent = 'Volver a mantener presionado';
+        el.dialogoAyuda.hidden = false;
+        el.dialogoAyuda.classList.remove('resaltar');
+        el.dialogoAceptar.focus();
+      }
+
+      function alAceptar() {
+        if (mantenerActivo) {
+          // Un toque corto no confirma: se recuerda que hay que mantener.
+          if (!ocupado && !llenado) resaltarAyuda();
+          return;
+        }
+        confirmar();
+      }
+
+      async function confirmar() {
+        if (ocupado) return; // doble pulsación: se ignora
+        if (typeof opciones.alConfirmar !== 'function') {
+          terminar(true);
+          return;
+        }
+        ocupado = true;
+        el.dialogoError.hidden = true;
+        ponerCargando(true);
+        let resultado = null;
+        try {
+          resultado = await opciones.alConfirmar();
+        } catch (e) {
+          resultado = null;
+        }
+        ocupado = false;
+        if (cerrarDialogoActual !== terminar) return; // el cuadro ya no es este
+        if (resultado && resultado.ok === true) {
+          ponerCargando(false);
+          terminar(resultado);
+          return;
+        }
+        // Error: el cuadro sigue abierto con el mensaje; nunca se muestra éxito.
+        const reintentable = !resultado || resultado.reintentable !== false;
+        prepararMantener(false); // el reintento es un toque normal
+        textoAceptar = reintentable ? 'Reintentar' : textoAceptar;
+        ponerCargando(false);
+        el.dialogoError.textContent = (resultado && resultado.mensaje) ||
+          'No se pudo completar. Revisa tu conexión e inténtalo de nuevo.';
+        el.dialogoError.hidden = false;
+        el.dialogoIcono.setAttribute('data-efecto', '');
+        void el.dialogoIcono.offsetWidth; // reinicia la animación del ícono
+        el.dialogoIcono.setAttribute('data-efecto', 'error');
+        sonidos.reproducir('error');
+        if (reintentable) {
+          el.dialogoAceptar.focus();
+        } else {
+          el.dialogoAceptar.hidden = true;
+          el.dialogoCancelar.textContent = 'Cerrar';
+          el.dialogoCancelar.hidden = false;
+          el.dialogoCancelar.focus();
+        }
+      }
+      function alCancelar() { if (!ocupado && !envio) terminar(false); }
+      function alTocarFondo(e) { if (e.target === el.dialogo && !ocupado && !envio) terminar(false); }
       function alTeclear(e) {
         if (e.key === 'Escape') {
           e.preventDefault();
           e.stopPropagation();
-          terminar(false);
+          if (!ocupado && !envio) terminar(false);
+        } else if (e.key === 'Enter' && e.target === el.dialogoCampo) {
+          e.preventDefault();
+          terminar(true);
         }
       }
       cerrarDialogoActual = terminar;
       el.dialogoAceptar.addEventListener('click', alAceptar);
+      if (modoMantener) {
+        prepararMantener(true);
+        el.dialogoAceptar.addEventListener('pointerdown', iniciarMantener);
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (tipo) {
+          el.dialogoAceptar.addEventListener(tipo, alSoltarPuntero);
+        });
+        el.dialogoAceptar.addEventListener('keydown', alTeclaMantener);
+        el.dialogoAceptar.addEventListener('keyup', alTeclaMantener);
+        el.dialogoAceptar.addEventListener('contextmenu', evitarMenu);
+        el.dialogoAlternativa.addEventListener('click', usarAlternativa);
+        window.addEventListener('blur', alPerderFoco);
+      }
       el.dialogoCancelar.addEventListener('click', alCancelar);
       el.dialogo.addEventListener('click', alTocarFondo);
       document.addEventListener('keydown', alTeclear, true);
     });
   }
 
-  // «Limpiar Mi galería»: borra lo guardado en ESTE teléfono. No toca Google
-  // Drive ni la galería compartida.
-  async function limpiarMiGaleria() {
-    if (fotosConfirmadas.some(enProceso)) {
+  /* ---------- «Eliminar foto» (solo fotos propias de «Mi galería») ---------- */
+
+  // Se puede eliminar si se compartió desde ESTE teléfono con su llave y el
+  // servidor confirmó que guardó el verificador.
+  function puedeEliminarse(foto) {
+    return !!foto && foto.estadoSubida === 'guardada' && !!foto.referencia &&
+      typeof foto.llaveEliminacion === 'string' && foto.eliminable === true;
+  }
+
+  function actualizarBotonEliminar(foto) {
+    const visible = puedeEliminarse(foto);
+    const ocupado = visible && foto.eliminando === true;
+    el.visorEliminar.hidden = !visible;
+    el.visorEliminar.disabled = ocupado;
+    el.visorEliminar.classList.toggle('preparando', ocupado);
+    el.visorEliminar.setAttribute('aria-busy', ocupado ? 'true' : 'false');
+    el.visorEliminar.textContent = ocupado ? 'Eliminando…' : 'Eliminar foto';
+  }
+
+  function refrescarBotonEliminar(foto) {
+    if (fuenteVisor === 'local' && !el.visor.hidden && fotosConfirmadas[indiceVisor] === foto) {
+      actualizarBotonEliminar(foto);
+    }
+  }
+
+  async function eliminarFotoActual() {
+    if (fuenteVisor === 'compartida') { // modo organizador
+      if (refVisor) eliminarComoOrganizador(refVisor);
+      return;
+    }
+    if (fuenteVisor !== 'local') return;
+    const foto = fotosConfirmadas[indiceVisor];
+    if (!puedeEliminarse(foto) || foto.eliminando) return;
+
+    // La confirmación espera la respuesta REAL del servidor con el botón en
+    // estado de carga («Eliminando…»); solo con éxito confirmado se cierra.
+    const resultado = await mostrarDialogo({
+      icono: 'eliminar',
+      titulo: '¿Eliminar esta fotografía?',
+      sonido: 'advertencia',
+      texto: 'Dejará de verse en la galería de todos y se enviará a la papelera de Google Drive de los organizadores.',
+      aviso: 'Si alguien ya la guardó en su teléfono, esa copia no se borra.',
+      aceptar: 'Sí, borrar',
+      cancelar: 'Cancelar',
+      mantenerMs: 2000,
+      textoMantener: 'Mantener para borrar',
+      textoCargando: 'Eliminando…',
+      alConfirmar: function () { return pedirEliminacionPropia(foto); }
+    });
+    if (!resultado || resultado.ok !== true) return; // cancelada o cerrada tras un error
+    await concluirEliminacionPropia(foto, resultado);
+  }
+
+  // Referencias con una eliminación en curso: protección extra contra
+  // peticiones duplicadas (además del botón bloqueado).
+  const eliminacionesEnCurso = {};
+
+  // Envía UNA petición de eliminación y traduce la respuesta del servidor.
+  // No cambia nada en pantalla si el servidor no confirma.
+  async function pedirEliminacionPropia(foto) {
+    const ref = foto && foto.referencia;
+    if (!puedeEliminarse(foto) || foto.eliminando || eliminacionesEnCurso[ref]) {
+      return { ok: false, reintentable: false, mensaje: 'Esta fotografía ya se está eliminando.' };
+    }
+    foto.eliminando = true;
+    eliminacionesEnCurso[ref] = true;
+    refrescarBotonEliminar(foto);
+    let r;
+    try {
+      r = await llamarServidor(JSON.stringify({
+        accion: 'eliminar',
+        clave: CLAVE_EVENTO,
+        ref: ref,
+        llave: foto.llaveEliminacion,
+        id: foto.idSubida
+      }));
+    } catch (e) {
+      r = { respondio: false };
+    } finally {
+      foto.eliminando = false;
+      delete eliminacionesEnCurso[ref];
+      refrescarBotonEliminar(foto);
+    }
+
+    const j = r && r.respondio && r.json && r.json.servicio === SERVICIO ? r.json : null;
+    if (j && j.ok === true && j.ref === ref) return { ok: true, simulada: j.simulada === true };
+
+    const codigo = j && j.ok === false ? j.codigo : null;
+    if (codigo === 'sin-llave' || codigo === 'sin-permiso') {
+      // Reintentar no cambiaría nada: se oculta el botón para esta foto.
+      foto.eliminable = false;
+      guardarEnMiGaleria(foto);
+      refrescarBotonEliminar(foto);
+      return { ok: false, reintentable: false, mensaje: 'No pudimos comprobar que esta fotografía sea tuya. Si necesitas quitarla, pide ayuda a los organizadores.' };
+    }
+    if (codigo === 'eliminacion-desactivada') {
+      return { ok: false, reintentable: false, mensaje: 'Eliminar fotografías no está disponible en este momento. Inténtalo más tarde.' };
+    }
+    if (codigo === 'no-disponible') {
+      return { ok: false, reintentable: false, mensaje: 'Esta fotografía ya no aparece en la galería de todos. Puede que los organizadores la hayan quitado.' };
+    }
+    if (codigo === 'demasiados-intentos') {
+      return { ok: false, reintentable: false, mensaje: (j && j.mensaje) || 'Se hicieron demasiados intentos. Espera unos minutos.' };
+    }
+    return { ok: false, reintentable: true, mensaje: 'No pudimos confirmar la eliminación. Revisa tu conexión e inténtalo de nuevo: repetirlo es seguro.' };
+  }
+
+  // Solo se llama cuando el servidor YA confirmó la eliminación.
+  async function concluirEliminacionPropia(foto, resultado) {
+    if (resultado.simulada) {
       await mostrarDialogo({
-        icono: 'repetir',
-        titulo: 'Un momento, por favor',
-        texto: 'Todavía se están enviando fotografías. Espera a que terminen y vuelve a intentarlo.',
+        icono: 'confirmado',
+        exito: true,
+        titulo: 'Prueba superada',
+        texto: 'El servidor comprobó que esta fotografía es tuya. Es una simulación: no se eliminó nada.',
         aceptar: 'Entendido'
       });
       return;
     }
-    const sinEnviar = fotosConfirmadas.filter(function (f) { return f.estadoSubida !== 'guardada'; }).length;
-    const confirmado = await mostrarDialogo({
-      icono: 'limpiar',
-      titulo: '¿Limpiar «Mi galería»?',
-      texto: 'Se borrarán las fotos guardadas en este teléfono. No te preocupes: las fotografías compartidas siguen en Google Drive y en la galería de todos.',
-      aviso: sinEnviar > 0
-        ? (sinEnviar === 1
-          ? 'Hay 1 fotografía que todavía no se ha enviado y se perderá.'
-          : 'Hay ' + sinEnviar + ' fotografías que todavía no se han enviado y se perderán.')
-        : '',
-      aceptar: 'Sí, limpiar',
-      cancelar: 'Cancelar'
+    const ref = foto.referencia;
+    if (fuenteVisor === 'local' && !el.visor.hidden && fotosConfirmadas[indiceVisor] === foto) {
+      cerrarVisorUI();
+      if (history.state && history.state.pantalla === 'visor') history.back();
+    }
+    await quitarDeMiGaleria(foto);
+    quitarFotoCompartida(ref);
+    // El sonido de eliminación suena aquí, UNA vez, y solo con éxito confirmado.
+    await mostrarDialogo({
+      icono: 'confirmado',
+      exito: true,
+      titulo: '¡Fotografía eliminada!',
+      sonido: 'eliminar',
+      texto: 'Ya no aparece en la galería de todos ni en «Mi galería».',
+      aceptar: 'Listo'
     });
-    if (!confirmado) return;
+  }
 
+  // Quita una foto de «Mi galería» (memoria y base local de este teléfono).
+  async function quitarDeMiGaleria(foto) {
+    const posicion = fotosConfirmadas.indexOf(foto);
+    if (posicion !== -1) fotosConfirmadas.splice(posicion, 1);
+    const enCola = colaSubidas.indexOf(foto);
+    if (enCola !== -1) colaSubidas.splice(enCola, 1);
+    if (fotoActual === foto) fotoActual = null;
+    foto.borrada = true; // impide nuevas escrituras de esta foto
+    [foto.url, foto.miniaturaUrl, foto.urlGrande].forEach(function (u) { if (u) URL.revokeObjectURL(u); });
+    foto.urlGrande = null;
+
+    const pendiente = almacen.escrituras[foto.id];
+    delete almacen.escrituras[foto.id];
+    if (almacen.bd) {
+      try { if (pendiente) await pendiente; } catch (e) { /* se borra igual */ }
+      try {
+        await operacionLocal(BD_FICHAS, 'readwrite', function (s) { return s.delete(foto.id); });
+        await operacionLocal(BD_ENVIOS, 'readwrite', function (s) { return s.delete(foto.id); });
+      } catch (e) { /* sin base local: solo se quita de la memoria */ }
+    }
+    renderizarGaleria();
+    actualizarBotonesGaleria();
+  }
+
+  /* ---------- MODO ORGANIZADOR (llave del pie) ---------- */
+
+  // Muestra una papelera en TODAS las fotos de la galería compartida, solo
+  // después de escribir la clave de organizador (se entra con la llave del pie
+  // o con #organizador al final de la dirección). La protección real está en el SERVIDOR: sin la
+  // clave correcta y con el modo apagado allí, no se elimina nada.
+  // La clave se guarda solo en esta pestaña (sessionStorage), nunca en config.js.
+  const organizador = { activo: false, clave: null, eliminando: null };
+  const SESION_ORGANIZADOR = 'hm-organizador';
+  const PATRON_CLAVE_ORGANIZADOR = /^[A-Za-z0-9_-]{43}$/;
+  const CODIGOS_SALIR_ORGANIZADOR = ['organizador-clave-invalida', 'organizador-desactivado', 'organizador-bloqueado'];
+
+  function leerSesionOrganizador() {
+    try { return sessionStorage.getItem(SESION_ORGANIZADOR); } catch (e) { return null; }
+  }
+
+  function guardarSesionOrganizador(clave) {
+    try {
+      if (clave) sessionStorage.setItem(SESION_ORGANIZADOR, clave);
+      else sessionStorage.removeItem(SESION_ORGANIZADOR);
+    } catch (e) { /* sin almacenamiento: solo dura mientras la página esté abierta */ }
+  }
+
+  function respuestaDelServicio(r) {
+    return r && r.respondio && r.json && r.json.servicio === SERVICIO ? r.json : null;
+  }
+
+  async function verificarClaveOrganizador(clave) {
+    let r;
+    try {
+      r = await llamarServidor(JSON.stringify({ accion: 'verificar-organizador', clave: CLAVE_EVENTO, claveOrganizador: clave }));
+    } catch (e) {
+      r = { respondio: false };
+    }
+    return respuestaDelServicio(r);
+  }
+
+  function pintarPapelera(ref) {
+    const d = compartida.datos[ref];
+    if (!d || !d.elemento) return;
+    let boton = d.elemento.querySelector('.boton-papelera');
+    if (!organizador.activo) {
+      if (boton) boton.remove();
+      return;
+    }
+    if (!boton) {
+      boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'boton-papelera';
+      boton.setAttribute('aria-label', 'Eliminar fotografía ' + ref);
+      boton.addEventListener('click', function (e) {
+        e.stopPropagation();
+        eliminarComoOrganizador(ref);
+      });
+      d.elemento.appendChild(boton);
+    }
+    boton.disabled = !!organizador.eliminando;
+    boton.classList.toggle('eliminando', organizador.eliminando === ref);
+  }
+
+  function actualizarBotonEliminarCompartida(ref) {
+    el.visorEliminar.hidden = !organizador.activo;
+    if (!organizador.activo) return;
+    const ocupado = organizador.eliminando === ref;
+    el.visorEliminar.disabled = ocupado;
+    el.visorEliminar.classList.toggle('preparando', ocupado);
+    el.visorEliminar.setAttribute('aria-busy', ocupado ? 'true' : 'false');
+    el.visorEliminar.textContent = ocupado ? 'Eliminando…' : 'Eliminar fotografía';
+  }
+
+  function actualizarModoOrganizadorUI() {
+    el.organizadorAviso.hidden = !organizador.activo;
+    el.btnOrganizador.classList.toggle('activo', organizador.activo);
+    el.btnOrganizador.setAttribute('aria-label', organizador.activo ? 'Modo organizador activo' : 'Entrar como organizador');
+    Object.keys(compartida.datos).forEach(pintarPapelera);
+    if (fuenteVisor === 'compartida' && !el.visor.hidden && refVisor) actualizarBotonEliminarCompartida(refVisor);
+  }
+
+  function salirModoOrganizador() {
+    organizador.activo = false;
+    organizador.clave = null;
+    guardarSesionOrganizador(null);
+    actualizarModoOrganizadorUI();
+  }
+
+  async function entrarModoOrganizador() {
+    if (!organizador.activo) {
+      const acepto = await mostrarDialogo({
+        icono: 'eliminar',
+        titulo: 'Modo organizador',
+        texto: 'Escribe la clave de organizador. Se olvida al cerrar esta pestaña.',
+        campo: 'Clave de organizador',
+        aceptar: 'Entrar',
+        cancelar: 'Cancelar'
+      });
+      const clave = el.dialogoCampo.value.trim();
+      el.dialogoCampo.value = '';
+      if (!acepto) return;
+      if (!PATRON_CLAVE_ORGANIZADOR.test(clave)) {
+        await mostrarDialogo({
+          icono: 'eliminar',
+          titulo: 'Clave no válida',
+          sonido: 'error',
+          texto: 'La clave de organizador tiene 43 caracteres (letras, números, «-» y «_»).',
+          aceptar: 'Entendido'
+        });
+        return;
+      }
+      const j = await verificarClaveOrganizador(clave);
+      if (!j || j.ok !== true || j.organizador !== true) {
+        await mostrarDialogo({
+          icono: 'eliminar',
+          titulo: 'No se pudo entrar',
+          sonido: 'error',
+          texto: j ? (j.mensaje || 'El servidor no aceptó la clave.') : 'No hubo respuesta del servidor. Revisa tu conexión e inténtalo de nuevo.',
+          aceptar: 'Entendido'
+        });
+        return;
+      }
+      organizador.activo = true;
+      organizador.clave = clave;
+      guardarSesionOrganizador(clave);
+      actualizarModoOrganizadorUI();
+    }
+    if (el.seccionGaleria.hidden) abrirGaleria();
+    mostrarPestana('compartida');
+    await mostrarDialogo({
+      icono: 'confirmado',
+      exito: true,
+      titulo: 'Modo organizador activo',
+      texto: 'Verás una papelera en cada fotografía de la galería compartida. Se desactiva con «Salir» o al cerrar esta pestaña.',
+      aceptar: 'Entendido'
+    });
+  }
+
+  async function eliminarComoOrganizador(ref) {
+    if (!organizador.activo || !organizador.clave || organizador.eliminando || !PATRON_REF_PUBLICA.test(ref)) return;
+    // Igual que «Mi galería»: mantener para borrar (barra blanca → verde) y,
+    // al completarse, «Eliminando…» hasta la respuesta REAL del servidor.
+    const resultado = await mostrarDialogo({
+      icono: 'eliminar',
+      titulo: '¿Eliminar esta fotografía?',
+      sonido: 'advertencia',
+      texto: 'Modo organizador: se enviará a la papelera de Google Drive y dejará de verse en la galería de todos.',
+      aviso: 'Si alguien ya la guardó en su teléfono, esa copia no se borra.',
+      aceptar: 'Sí, borrar',
+      cancelar: 'Cancelar',
+      mantenerMs: 2000,
+      textoMantener: 'Mantener para borrar',
+      textoCargando: 'Eliminando…',
+      alConfirmar: function () { return pedirEliminacionOrganizador(ref); }
+    });
+    if (!resultado || resultado.ok !== true) return; // cancelada o cerrada tras un error
+
+    // Solo llega aquí si el servidor confirmó la eliminación de ESTA referencia.
+    if (fuenteVisor === 'compartida' && !el.visor.hidden && refVisor === ref) {
+      cerrarVisorUI();
+      if (history.state && history.state.pantalla === 'visor') history.back();
+    }
+    quitarFotoCompartida(ref);
+    const local = fotoLocalDe(ref);
+    if (local) await quitarDeMiGaleria(local);
+    Object.keys(compartida.datos).forEach(pintarPapelera);
+    await mostrarDialogo({
+      icono: 'confirmado',
+      exito: true,
+      titulo: resultado.yaEliminada ? 'Ya estaba eliminada' : '¡Fotografía eliminada!',
+      sonido: 'eliminar', // una sola vez, con el éxito confirmado
+      texto: resultado.yaEliminada
+        ? 'Esta fotografía ya se había eliminado antes.'
+        : 'Se envió a la papelera de Google Drive y ya no aparece en la galería.',
+      aceptar: 'Listo'
+    });
+  }
+
+  // Envía UNA petición del modo organizador y traduce la respuesta.
+  async function pedirEliminacionOrganizador(ref) {
+    if (!organizador.activo || !organizador.clave || organizador.eliminando) {
+      return { ok: false, reintentable: false, mensaje: 'Ya se está eliminando una fotografía.' };
+    }
+    organizador.eliminando = ref;
+    Object.keys(compartida.datos).forEach(pintarPapelera);
+    if (fuenteVisor === 'compartida' && refVisor === ref) actualizarBotonEliminarCompartida(ref);
+    let r;
+    try {
+      r = await llamarServidor(JSON.stringify({
+        accion: 'eliminar-organizador',
+        clave: CLAVE_EVENTO,
+        claveOrganizador: organizador.clave,
+        ref: ref
+      }));
+    } catch (e) {
+      r = { respondio: false };
+    } finally {
+      organizador.eliminando = null;
+      Object.keys(compartida.datos).forEach(pintarPapelera);
+      if (fuenteVisor === 'compartida' && refVisor === ref) actualizarBotonEliminarCompartida(ref);
+    }
+    const j = respuestaDelServicio(r);
+    if (j && j.ok === true && j.ref === ref) return { ok: true, yaEliminada: j.yaEliminada === true };
+    if (!j) {
+      return { ok: false, reintentable: true, mensaje: 'No pudimos confirmar la eliminación. Revisa tu conexión e inténtalo de nuevo: repetirlo es seguro.' };
+    }
+    if (CODIGOS_SALIR_ORGANIZADOR.indexOf(j.codigo) !== -1) {
+      salirModoOrganizador();
+      return { ok: false, reintentable: false, mensaje: j.mensaje || 'El modo organizador ya no está disponible.' };
+    }
+    const reintentable = ['ocupado', 'error-eliminacion', 'papelera-fallida', 'error-interno'].indexOf(j.codigo) !== -1;
+    return { ok: false, reintentable: reintentable, mensaje: j.mensaje || 'El servidor no confirmó la eliminación.' };
+  }
+
+
+  // Al abrir la página: #organizador pide la clave; si esta pestaña ya la
+  // tenía, se vuelve a comprobar con el servidor antes de mostrar las papeleras.
+  async function iniciarModoOrganizador() {
+    if (location.hash === '#organizador') {
+      history.replaceState(history.state, '', location.pathname + location.search);
+      entrarModoOrganizador();
+      return;
+    }
+    const guardada = leerSesionOrganizador();
+    if (!guardada || !PATRON_CLAVE_ORGANIZADOR.test(guardada)) return;
+    const j = await verificarClaveOrganizador(guardada);
+    if (j && j.ok === true && j.organizador === true) {
+      organizador.activo = true;
+      organizador.clave = guardada;
+      actualizarModoOrganizadorUI();
+    } else if (j) {
+      guardarSesionOrganizador(null);
+    }
+  }
+
+  // Vacía «Mi galería» de ESTE teléfono (memoria y base local). No toca Google
+  // Drive ni la galería compartida. Se ejecuta solo al completar la confirmación.
+  async function vaciarMiGaleria() {
+    if (fotosConfirmadas.some(enProceso)) {
+      return { ok: false, reintentable: true, mensaje: 'Se está enviando una fotografía. Espera a que termine y vuelve a intentarlo.' };
+    }
     fotosConfirmadas.forEach(function (foto) {
       foto.borrada = true;
       [foto.url, foto.miniaturaUrl, foto.urlGrande].forEach(function (u) { if (u) URL.revokeObjectURL(u); });
@@ -1995,11 +3161,54 @@
     renderizarGaleria();
     actualizarBotonesGaleria();
     Object.keys(compartida.datos).forEach(pintarMiniatura); // quita los distintivos «Tuya»
+    return { ok: true };
+  }
+
+  // «Limpiar Mi galería»: borra lo guardado en ESTE teléfono. No toca Google
+  // Drive ni la galería compartida.
+  async function limpiarMiGaleria() {
+    if (fotosConfirmadas.length === 0) return; // nada que limpiar
+    if (fotosConfirmadas.some(enProceso)) {
+      await mostrarDialogo({
+        icono: 'repetir',
+        titulo: 'Un momento, por favor',
+        sonido: 'advertencia',
+        texto: 'Todavía se están enviando fotografías. Espera a que terminen y vuelve a intentarlo.',
+        aceptar: 'Entendido'
+      });
+      return;
+    }
+    const sinEnviar = fotosConfirmadas.filter(function (f) { return f.estadoSubida !== 'guardada'; }).length;
+    const conLlave = fotosConfirmadas.filter(puedeEliminarse).length;
+    const avisos = [];
+    if (sinEnviar > 0) {
+      avisos.push(sinEnviar === 1
+        ? 'Hay 1 fotografía que todavía no se ha enviado y se perderá.'
+        : 'Hay ' + sinEnviar + ' fotografías que todavía no se han enviado y se perderán.');
+    }
+    if (conLlave > 0) {
+      avisos.push('Después ya no podrás eliminar desde este teléfono las fotos que compartiste.');
+    }
+    const resultado = await mostrarDialogo({
+      icono: 'limpiar',
+      titulo: '¿Limpiar «Mi galería»?',
+      sonido: 'advertencia',
+      texto: 'Se borrarán las fotos guardadas en este teléfono. No te preocupes: las fotografías compartidas siguen en Google Drive y en la galería de todos.',
+      aviso: avisos.join(' '),
+      aceptar: 'Sí, limpiar',
+      cancelar: 'Cancelar',
+      mantenerMs: 2000,
+      textoMantener: 'Mantener para limpiar',
+      textoCargando: 'Limpiando…',
+      alConfirmar: vaciarMiGaleria
+    });
+    if (!resultado || resultado.ok !== true) return;
 
     await mostrarDialogo({
       icono: 'confirmado',
       exito: true,
       titulo: '«Mi galería» está limpia',
+      sonido: 'eliminar',
       texto: 'Las fotografías compartidas siguen disponibles en la galería de todos.',
       aceptar: 'Listo'
     });
@@ -2338,15 +3547,42 @@
   // pendientes» (galería): siempre con el mismo id de cada foto.
   el.btnReintentarSubida.addEventListener('click', function () {
     reintentarSubida(fotoActual);
+    mostrarAnimacionEnvio(fotoActual);
   });
-  el.btnReintentarPendientes.addEventListener('click', reintentarPendientes);
+  el.btnReintentarPendientes.addEventListener('click', function () {
+    const lista = fotosConfirmadas.filter(puedeReintentarse);
+    reintentarPendientes();
+    mostrarAnimacionEnvio(lista); // anillos también al reintentar desde «Mi galería»
+  });
   el.btnLimpiarMiGaleria.addEventListener('click', limpiarMiGaleria);
+  // Modo organizador.
+  el.btnSalirOrganizador.addEventListener('click', function () {
+    salirModoOrganizador();
+    mostrarDialogo({ icono: 'confirmado', exito: true, titulo: 'Saliste del modo organizador', texto: 'Ya no se muestran las papeleras.', aceptar: 'Listo' });
+  });
+  el.btnOrganizador.addEventListener('click', entrarModoOrganizador); // ícono de llave del pie
+  // Sonidos: botón del pie (empiezan activados; se pueden silenciar). Al activarlos suena una
+  // muestra dentro del mismo toque, así Safari permite el audio.
+  el.btnSonido.addEventListener('click', function () {
+    const activos = sonidos.cambiar(!sonidos.estanActivados());
+    actualizarBotonSonido();
+    if (activos) sonidos.reproducir('agregar');
+  });
+  ['touchend', 'click', 'keydown'].forEach(function (tipo) {
+    document.addEventListener(tipo, sonidos.desbloquear, { capture: true, passive: true });
+  });
+  actualizarBotonSonido();
+  window.addEventListener('hashchange', function () {
+    if (location.hash !== '#organizador') return;
+    history.replaceState(history.state, '', location.pathname + location.search);
+    entrarModoOrganizador();
+  });
 
   el.btnsVerGaleria.forEach(function (boton) {
     boton.addEventListener('click', abrirGaleria);
   });
 
-  el.btnVolverInicio.addEventListener('click', volverAlInicio);
+  el.btnVolverInicio.addEventListener('click', volverAlInicioConPaloma);
 
   // Pestañas y botones de la galería compartida.
   el.pestanaCompartida.addEventListener('click', function () { mostrarPestana('compartida'); });
@@ -2358,6 +3594,7 @@
 
   el.visorCerrar.addEventListener('click', cerrarVisor);
   el.visorGuardar.addEventListener('click', guardarFotoActual);
+  el.visorEliminar.addEventListener('click', eliminarFotoActual);
   el.visorAnterior.addEventListener('click', function () { moverVisor(-1); });
   el.visorSiguiente.addEventListener('click', function () { moverVisor(1); });
 
@@ -2420,5 +3657,32 @@
   };
 
   actualizarBotonesGaleria();
+  // ---- Bienvenida (solo al abrir o recargar la página) ----
+  // La app ya está lista debajo; la bienvenida se va sola a ~1.6 s (0.6 s con
+  // «reducir movimiento»), o al tocarla. Después se elimina del documento, así
+  // nunca vuelve a aparecer al cambiar de apartado. Sin sonidos.
+  (function iniciarBienvenida() {
+    const pantalla = el.bienvenida;
+    if (!pantalla) return;
+    let reducido = false;
+    try { reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { reducido = false; }
+    let cerrada = false;
+    function cerrar() {
+      if (cerrada) return;
+      cerrada = true;
+      pantalla.classList.add('saliendo');
+      setTimeout(function () { if (pantalla.parentNode) pantalla.parentNode.removeChild(pantalla); }, 400);
+    }
+    setTimeout(cerrar, reducido ? 600 : 1600);
+    pantalla.addEventListener('click', cerrar);
+    document.addEventListener('keydown', function alTeclear(e) {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        if (!cerrada) { e.preventDefault(); cerrar(); }
+        document.removeEventListener('keydown', alTeclear);
+      }
+    });
+  })();
+
   iniciarMiGaleria(); // recupera «Mi galería» guardada en este teléfono
+  iniciarModoOrganizador(); // solo con #organizador o una clave ya comprobada
 })();

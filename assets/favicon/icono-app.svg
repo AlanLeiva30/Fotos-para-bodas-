@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <title>Héctor &amp; Martha</title>
+  <!-- Fuente de los íconos de pantalla de inicio (iPhone 180 px, Android 192 px).
+       Fondo cuadrado: iPhone y Android redondean las esquinas solos. -->
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3C5646"/>
+      <stop offset="1" stop-color="#2E4336"/>
+    </linearGradient>
+    <linearGradient id="oro" gradientUnits="userSpaceOnUse" x1="12" y1="12" x2="52" y2="48">
+      <stop offset="0" stop-color="#E6D099"/>
+      <stop offset="0.55" stop-color="#C6A766"/>
+      <stop offset="1" stop-color="#A3833F"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" fill="url(#fondo)"/>
+  <g transform="translate(90 92) scale(2.15) translate(-32 -32)">
+    <g fill="none" stroke="url(#oro)" stroke-width="4.2">
+      <circle cx="25" cy="33" r="12.5"/>
+      <circle cx="39" cy="31" r="12.5"/>
+      <path d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07" stroke="#324739" stroke-width="7.4"/>
+      <path d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07"/>
+    </g>
+    <!-- Pequeño brillante sobre el anillo derecho -->
+    <polygon points="35.9,15.4 37.5,13.1 40.5,13.1 42.1,15.4 39,19.4" fill="url(#oro)" stroke="#324739" stroke-width="0.6" stroke-linejoin="round"/>
+    <path d="M35.9 15.4h6.2M37.5 13.1l1.5 2.3 1.5-2.3M39 15.4v4" fill="none" stroke="#324739" stroke-width="0.45" stroke-linecap="round"/>
+  </g>
+</svg>

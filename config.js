@@ -15,7 +15,7 @@
  *   comprobar que la respuesta viene realmente de nuestro servidor.
  */
 window.BODA_CONFIG = Object.freeze({
-  urlServidor: 'https://script.google.com/macros/s/AKfycbzqZfJonsbR-WAEzfwMt-eQ9SD7QAQmHQl2-qgNFYaB6o5M1kB-HQsyulweSahXjaME3Q/exec',
+  urlServidor: 'https://script.google.com/macros/s/AKfycbzeqWkCR16hHY7eOE3l7Su6GXqYq71MpFvXixOwaGEjOhaQ4E0itNCJ3w2aDXi4RQF00A/exec',
   claveEvento: 'hm-2c885b4d030a4a33', // identificador público (no es una contraseña)
   servicio: 'hector-martha-pruebas'
 });

@@ -7,6 +7,21 @@
   <title>Boda Héctor &amp; Martha</title>
 
   <!--
+    Ícono de la boda (dos anillos entrelazados, diseño original).
+    - Rutas RELATIVAS (sin «/» al inicio): funcionan también en GitHub Pages
+      dentro de la subcarpeta del repositorio.
+    - «?v=» obliga al navegador a descargar el ícono nuevo y no uno guardado.
+    - Sin service worker ni manifest: solo el ícono.
+  -->
+  <link rel="icon" href="assets/favicon/favicon.ico?v=1" sizes="48x48">
+  <link rel="icon" href="assets/favicon/favicon-16x16.png?v=1" type="image/png" sizes="16x16">
+  <link rel="icon" href="assets/favicon/favicon-32x32.png?v=1" type="image/png" sizes="32x32">
+  <link rel="icon" href="assets/favicon/icono-192.png?v=1" type="image/png" sizes="192x192">
+  <link rel="icon" href="assets/favicon/favicon.svg?v=1" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png?v=1" sizes="180x180">
+  <meta name="apple-mobile-web-app-title" content="Héctor &amp; Martha">
+
+  <!--
     Tipografías (Google Fonts, sin instalar nada):
     - Cormorant Garamond: títulos elegantes.
     - Great Vibes: solo para el "&" decorativo.
@@ -18,9 +33,75 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=Great+Vibes&family=Montserrat:wght@400;500;600&display=swap">
 
   <!-- "?v=" obliga al navegador a descargar la versión nueva tras cada cambio. -->
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
+  <!--
+    Bienvenida (solo al abrir o recargar la página): una iglesia que se dibuja,
+    dos anillos que se entrelazan y «Héctor & Martha». SVG + CSS originales.
+    Visible desde el primer instante (sin parpadeo de la página). Se quita sola
+    a los ~2 s; si algo fallara, el propio CSS la oculta a los 3 s. Tocarla la salta.
+  -->
+  <div id="bienvenida" class="bienvenida" aria-hidden="true">
+    <div class="bienvenida-contenido">
+      <svg class="iglesia" viewBox="0 0 200 172" focusable="false">
+        <defs>
+          <linearGradient id="bienvenida-oro" gradientUnits="userSpaceOnUse" x1="70" y1="130" x2="130" y2="165">
+            <stop offset="0" stop-color="#E9D6A1"/>
+            <stop offset="0.5" stop-color="#C6A766"/>
+            <stop offset="1" stop-color="#9E7E3C"/>
+          </linearGradient>
+          <radialGradient id="bienvenida-resplandor">
+            <stop offset="0" stop-color="#E9D6A1" stop-opacity="0.55"/>
+            <stop offset="1" stop-color="#E9D6A1" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <!-- Resplandor suave detrás de la composición -->
+        <circle class="iglesia-resplandor" cx="100" cy="100" r="78" fill="url(#bienvenida-resplandor)"/>
+        <!-- A. La iglesia se dibuja desde abajo -->
+        <g class="iglesia-trazos" fill="none" stroke="#344C3D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path class="trazo t-suelo" pathLength="1" d="M28 152H172"/>
+          <path class="trazo t-nave" pathLength="1" d="M50 152V104L82 78M150 152V104L118 78"/>
+          <path class="trazo t-torre" pathLength="1" d="M82 152V72H118V152"/>
+          <path class="trazo t-aguja" pathLength="1" d="M78 72L100 38L122 72"/>
+          <path class="trazo t-puerta" pathLength="1" d="M92 152V134a8 8 0 0 1 16 0V152"/>
+          <path class="trazo t-campana" pathLength="1" d="M95 92v-7a5 5 0 0 1 10 0v7z"/>
+        </g>
+        <!-- Ventanas en verde salvia -->
+        <g class="iglesia-ventanas" fill="#89967B" fill-opacity="0.55" stroke="#6E7F62" stroke-width="1">
+          <path d="M60 130v-11a5 5 0 0 1 10 0v11z"/>
+          <path d="M130 130v-11a5 5 0 0 1 10 0v11z"/>
+          <circle cx="100" cy="108" r="6"/>
+        </g>
+        <!-- Cruz dorada -->
+        <path class="iglesia-cruz" pathLength="1" d="M100 38V22M94 28H106" fill="none" stroke="url(#bienvenida-oro)" stroke-width="2.2" stroke-linecap="round"/>
+        <!-- Destellos -->
+        <g class="bienvenida-destellos" fill="#C6A766">
+          <path class="b-destello bd1" d="M40 60l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z"/>
+          <path class="b-destello bd2" d="M160 48l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z"/>
+          <path class="b-destello bd3" d="M150 130l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>
+        </g>
+        <!-- B. Dos anillos que llegan desde lados opuestos y se entrelazan delante -->
+        <g transform="translate(100 150) scale(0.78) translate(-32 -32)">
+          <g class="b-anillo b-anillo-izq" fill="none" stroke="url(#bienvenida-oro)" stroke-width="4">
+            <circle cx="25" cy="33" r="12.5"/>
+          </g>
+          <g class="b-anillo b-anillo-der" fill="none" stroke="url(#bienvenida-oro)" stroke-width="4">
+            <circle cx="39" cy="31" r="12.5"/>
+          </g>
+          <g class="b-anillo b-anillo-izq" fill="none" stroke-width="4">
+            <path d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07" stroke="#FAF6EE" stroke-width="7"/>
+            <path d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07" stroke="url(#bienvenida-oro)"/>
+          </g>
+          <circle class="b-anillos-brillo" cx="32" cy="32" r="22" fill="url(#bienvenida-resplandor)"/>
+        </g>
+      </svg>
+      <!-- C. Bienvenida -->
+      <p class="bienvenida-titulo">Héctor <span class="bienvenida-amp">&amp;</span> Martha</p>
+      <p class="bienvenida-texto">Unidos por amor, rodeados de recuerdos</p>
+      <p class="bienvenida-carga">Preparando nuestra historia…</p>
+    </div>
+  </div>
   <main class="contenedor">
     <!-- Portada -->
     <header class="portada">
@@ -140,11 +221,16 @@
         <p class="nota-galeria">
           Fotografías que los invitados ya compartieron con Héctor &amp; Martha. Toca una para verla en grande.
         </p>
+        <!-- Aviso del modo organizador (solo se ve con la clave de organizador). -->
+        <p id="organizador-aviso" class="organizador-aviso" hidden>
+          <span>Modo organizador</span>
+          <button type="button" id="btn-salir-organizador" class="organizador-salir">Salir</button>
+        </p>
         <p id="compartida-estado" class="mensaje" role="status" aria-live="polite" hidden></p>
         <ul id="compartida-cuadricula" class="galeria-cuadricula"></ul>
         <div class="acciones acciones-galeria">
           <button type="button" id="btn-cargar-mas" class="boton boton-secundario" hidden>Cargar más fotografías</button>
-          <button type="button" id="btn-actualizar-galeria" class="boton boton-terciario icono icono-repetir">Actualizar galería</button>
+          <button type="button" id="btn-actualizar-galeria" class="boton boton-texto icono icono-repetir">Actualizar galería</button>
         </div>
       </div>
 
@@ -155,18 +241,19 @@
         </p>
         <p id="mi-galeria-aviso" class="mensaje" role="status" hidden></p>
         <p id="galeria-vacia" class="mensaje mensaje-vacio" hidden>Todavía no has confirmado ninguna fotografía.</p>
-        <ul id="galeria-cuadricula" class="galeria-cuadricula"></ul>
-        <div class="acciones acciones-galeria">
-          <!-- Solo aparece cuando hay fotos sin enviar. -->
-          <button type="button" id="btn-reintentar-pendientes" class="boton boton-secundario icono icono-repetir" hidden>Reintentar envíos pendientes</button>
+        <!-- Aviso contextual: solo aparece cuando hay fotos sin enviar. -->
+        <div id="aviso-pendientes" class="aviso-pendientes" role="status" hidden>
+          <span id="aviso-pendientes-texto" class="aviso-pendientes-texto">1 fotografía sin enviar</span>
+          <button type="button" id="btn-reintentar-pendientes" class="aviso-pendientes-boton icono icono-repetir">Reintentar</button>
         </div>
+        <ul id="galeria-cuadricula" class="galeria-cuadricula"></ul>
       </div>
 
       <!-- Botones a la par. «Limpiar mi galería» solo se ve en la pestaña «Mi galería»
            cuando tiene fotos; borra lo guardado en este teléfono, nunca Google Drive. -->
       <div class="acciones acciones-galeria acciones-par">
-        <button type="button" id="btn-volver-inicio" class="boton icono icono-inicio">Volver al inicio</button>
-        <button type="button" id="btn-limpiar-mi-galeria" class="boton boton-terciario icono icono-limpiar" hidden>Limpiar mi galería</button>
+        <button type="button" id="btn-volver-inicio" class="boton boton-secundario icono icono-inicio">Volver al inicio</button>
+        <button type="button" id="btn-limpiar-mi-galeria" class="boton boton-texto icono icono-limpiar" hidden>Limpiar mi galería</button>
       </div>
     </section>
   </main>
@@ -180,7 +267,85 @@
     <p class="pie-linea"><strong>Desarrollado por NeitorCompany</strong></p>
     <p class="pie-linea">Creado por Alan Leiva</p>
     <p class="pie-copy">© 2026 NeitorCompany<span class="pie-rayo" aria-hidden="true"></span> · Todos los derechos reservados.</p>
+    <!-- Acceso al modo organizador. La protección real está en el servidor (clave + interruptor). -->
+    <div class="pie-iconos">
+      <!-- Sonidos: empiezan activados; el invitado puede silenciarlos. -->
+      <button type="button" id="btn-sonido" class="pie-organizador pie-sonido" aria-pressed="true" aria-label="Silenciar sonidos" title="Sonidos activados"></button>
+      <button type="button" id="btn-organizador" class="pie-organizador" aria-label="Entrar como organizador" title="Organizador"></button>
+    </div>
   </footer>
+
+  <!--
+    Transición «Volver al inicio»: la paloma se FORMA por partes (cola, cuerpo,
+    cabeza y pico, alas, rama de olivo), aletea y se va volando. SVG original de
+    NeitorCompany. Solo decorativa: la navegación real ocurre debajo, enseguida.
+  -->
+  <div id="transicion-inicio" class="transicion-inicio" role="status" aria-live="polite" hidden>
+    <div class="transicion-contenido">
+      <svg class="paloma" viewBox="0 0 140 100" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="paloma-cuerpo" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFFFFF"/>
+            <stop offset="1" stop-color="#ECE7DD"/>
+          </linearGradient>
+          <linearGradient id="paloma-ala" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#FFFFFF"/>
+            <stop offset="1" stop-color="#E6E0D4"/>
+          </linearGradient>
+          <!-- El mismo contorno de cuerpo y cabeza, separado en dos zonas para formarlas por turnos -->
+          <clipPath id="zona-cuerpo"><rect x="0" y="0" width="101" height="100"/></clipPath>
+          <clipPath id="zona-cabeza"><rect x="100" y="0" width="40" height="100"/></clipPath>
+          <path id="silueta-paloma" d="M38 58c8-11 24-17 42-16 10 .5 17-3 22-9 4-4 10-4 12 0 2 3 0 6-3 8-4 9-14 17-28 21-16 4-33 3-45-4z"/>
+        </defs>
+        <!-- Destellos dorados discretos -->
+        <g class="destellos" fill="#C6A766">
+          <path class="destello d1" d="M18 20l1.2 3.3 3.3 1.2-3.3 1.2L18 29l-1.2-3.3-3.3-1.2 3.3-1.2z"/>
+          <path class="destello d2" d="M122 14l1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1z"/>
+          <path class="destello d3" d="M128 70l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/>
+          <path class="destello d4" d="M10 74l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>
+        </g>
+        <g class="paloma-vuelo">
+          <!-- 5. Ala lejana (llega a su sitio y luego aletea) -->
+          <g class="pieza pieza-ala-lejana">
+            <path class="ala ala-lejana" d="M66 46C60 30 50 18 36 12c8 9 13 19 16 32z" fill="#E9E4D9"/>
+          </g>
+          <!-- 1. Plumas de la cola -->
+          <g class="pieza pieza-cola">
+            <path d="M40 58c-10 2-20 8-30 14 9 2 20-1 30-7l-4 9c7-3 12-8 15-13z" fill="url(#paloma-ala)" stroke="#D7D0C3" stroke-width="0.8" stroke-linejoin="round"/>
+            <path d="M33 61l-16 9M36 63l-9 9" fill="none" stroke="#DCD5C8" stroke-width="0.6" stroke-linecap="round"/>
+          </g>
+          <!-- 2. Cuerpo blanco -->
+          <g class="pieza pieza-cuerpo">
+            <use href="#silueta-paloma" clip-path="url(#zona-cuerpo)" fill="url(#paloma-cuerpo)" stroke="#D7D0C3" stroke-width="0.8" stroke-linejoin="round"/>
+          </g>
+          <!-- 3. Cabeza, ojo y pico -->
+          <g class="pieza pieza-cabeza">
+            <use href="#silueta-paloma" clip-path="url(#zona-cabeza)" fill="url(#paloma-cuerpo)" stroke="#D7D0C3" stroke-width="0.8" stroke-linejoin="round"/>
+            <path d="M114 35.5l6.5 1.4-6.2 1.9z" fill="#CDA76A"/>
+            <circle cx="109.5" cy="35" r="1.25" fill="#49362B"/>
+          </g>
+          <!-- 6. Rama de olivo en el pico -->
+          <g class="pieza pieza-olivo">
+            <path d="M118 37.5c3 4 4 9 2.5 14" fill="none" stroke="#5E7052" stroke-width="1.1" stroke-linecap="round"/>
+            <ellipse cx="122.5" cy="42" rx="3.4" ry="1.4" transform="rotate(35 122.5 42)" fill="#89967B"/>
+            <ellipse cx="118" cy="45" rx="3.2" ry="1.3" transform="rotate(-35 118 45)" fill="#7C8A6D"/>
+            <ellipse cx="123.5" cy="48.5" rx="3.2" ry="1.3" transform="rotate(25 123.5 48.5)" fill="#89967B"/>
+            <ellipse cx="119" cy="52" rx="2.8" ry="1.2" transform="rotate(-30 119 52)" fill="#7C8A6D"/>
+          </g>
+          <!-- 4. Ala cercana (llega a su sitio y luego aletea) -->
+          <g class="pieza pieza-ala-cercana">
+            <g class="ala ala-cercana">
+              <path d="M72 46C66 26 54 10 34 4c9 10 15 22 19 38 4 7 13 9 19 4z" fill="url(#paloma-ala)" stroke="#D7D0C3" stroke-width="0.8" stroke-linejoin="round"/>
+              <path d="M56 22c3 6 6 12 8 20M48 15c4 7 8 15 10 24" fill="none" stroke="#DCD5C8" stroke-width="0.7" stroke-linecap="round"/>
+            </g>
+          </g>
+        </g>
+      </svg>
+      <p class="transicion-titulo">Volviendo a nuestro inicio…</p>
+      <p class="transicion-texto">Cada recuerdo es parte de nuestra historia</p>
+      <p class="transicion-firma">Héctor &amp; Martha <span aria-hidden="true">♡</span></p>
+    </div>
+  </div>
 
   <!-- Visor de una fotografía en tamaño grande (pantalla completa). -->
   <div id="visor" class="visor" role="dialog" aria-modal="true" aria-label="Fotografía en tamaño grande" hidden>
@@ -190,6 +355,7 @@
     <p id="visor-contador" class="visor-contador"></p>
     <!-- Solo en la galería compartida: guarda la foto completa (iPhone: menú compartir; Android y computadora: descarga JPEG). -->
     <button type="button" id="visor-guardar" class="boton visor-guardar icono icono-guardar" hidden>Guardar fotografía</button>
+    <button type="button" id="visor-eliminar" class="boton visor-guardar icono icono-eliminar" hidden>Eliminar foto</button>
     <div class="visor-acciones">
       <button type="button" id="visor-anterior" class="boton boton-secundario icono icono-anterior" aria-label="Fotografía anterior">Anterior</button>
       <button type="button" id="visor-cerrar" class="boton boton-secundario icono icono-cerrar">Cerrar</button>
@@ -204,13 +370,49 @@
   <div id="dialogo" class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dialogo-titulo" aria-describedby="dialogo-texto" hidden>
     <div class="dialogo-tarjeta">
       <span id="dialogo-icono" class="dialogo-icono" aria-hidden="true"></span>
-      <h2 id="dialogo-titulo" class="dialogo-titulo"></h2>
+      <!-- Solo al compartir: dos anillos que se acercan y se entrelazan (SVG original). -->
+      <div id="dialogo-anillos" class="dialogo-anillos" aria-hidden="true" hidden>
+        <svg viewBox="4 10 56 46" focusable="false">
+          <defs>
+            <linearGradient id="anillo-oro" gradientUnits="userSpaceOnUse" x1="10" y1="16" x2="54" y2="48">
+              <stop offset="0" stop-color="#E9D6A1"/>
+              <stop offset="0.5" stop-color="#C6A766"/>
+              <stop offset="1" stop-color="#9E7E3C"/>
+            </linearGradient>
+          </defs>
+          <g class="anillo anillo-izq">
+            <circle class="anillo-trazo" cx="25" cy="33" r="12.5"/>
+            <circle class="anillo-brillo" cx="25" cy="33" r="12.5"/>
+          </g>
+          <g class="anillo anillo-der">
+            <circle class="anillo-trazo" cx="39" cy="31" r="12.5"/>
+            <circle class="anillo-brillo anillo-brillo-der" cx="39" cy="31" r="12.5"/>
+          </g>
+          <!-- Cruce inferior: el anillo izquierdo pasa por encima (entrelazados). -->
+          <g class="anillo anillo-izq">
+            <path class="anillo-cruce-halo" d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07"/>
+            <path class="anillo-trazo" d="M36.33 38.28A12.5 12.5 0 0 1 28.24 45.07"/>
+          </g>
+        </svg>
+      </div>
+      <h2 id="dialogo-titulo" class="dialogo-titulo" tabindex="-1"></h2>
       <p id="dialogo-texto" class="dialogo-texto"></p>
       <p id="dialogo-aviso" class="dialogo-aviso" hidden></p>
-      <div class="dialogo-acciones">
+      <p id="dialogo-error" class="dialogo-error" role="alert" hidden></p>
+      <input type="password" id="dialogo-campo" class="dialogo-campo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" hidden>
+      <div id="dialogo-acciones" class="dialogo-acciones">
         <button type="button" id="dialogo-cancelar" class="boton boton-secundario">Cancelar</button>
         <button type="button" id="dialogo-aceptar" class="boton">Aceptar</button>
       </div>
+      <!-- Solo en «mantener para confirmar»: instrucción y alternativa accesible. -->
+      <!-- Solo durante un envío largo: seguir usando la app mientras termina. -->
+      <button type="button" id="dialogo-segundo-plano" class="dialogo-alternativa dialogo-segundo-plano" hidden>Seguir navegando mientras se envía</button>
+      <!-- Anuncios para lectores de pantalla (estado del envío). -->
+      <p id="dialogo-vivo" class="oculto-visual" role="status" aria-live="polite"></p>
+      <p id="dialogo-ayuda" class="dialogo-ayuda" hidden>
+        <span id="dialogo-ayuda-texto">Mantén presionado hasta que se llene la barra.</span>
+        <button type="button" id="dialogo-alternativa" class="dialogo-alternativa">Prefiero tocar una vez</button>
+      </p>
     </div>
   </div>
 
@@ -256,7 +458,7 @@
   </div>
 
   <!-- config.js: configuración PÚBLICA del servidor (sin contraseñas). -->
-  <script src="config.js?v=2"></script>
-  <script src="script.js?v=20"></script>
+  <script src="config.js?v=3"></script>
+  <script src="script.js?v=40"></script>
 </body>
 </html>

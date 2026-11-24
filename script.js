@@ -80,6 +80,8 @@
     btnVolverInicio: document.getElementById('btn-volver-inicio'),
     transicionInicio: document.getElementById('transicion-inicio'),
     bienvenida: document.getElementById('bienvenida'),
+    actualizandoGaleria: document.getElementById('actualizando-galeria'),
+    actualizandoTexto: document.getElementById('actualizando-texto'),
     seccionGaleria: document.getElementById('seccion-galeria'),
     tituloGaleria: document.getElementById('titulo-galeria'),
     galeriaVacia: document.getElementById('galeria-vacia'),
@@ -440,6 +442,7 @@
   // de salir de la página, lo que borraría las fotografías de la memoria.
 
   function mostrarInicioUI() {
+    quitarCorazonYa();
     detenerActualizacion();
     el.seccionGaleria.hidden = true;
     el.seccionConfirmacion.hidden = true;
@@ -699,6 +702,12 @@
     fotosGrandes: [],   // refs con foto grande en memoria (las más antiguas se liberan)
     tokenVisor: 0
   };
+  // «Actualizar galería» pulsado por el invitado (corazón animado). Las
+  // consultas automáticas de fondo NO lo usan.
+  const actualizacionManual = { activa: false };
+  // Corazón «Gracias por ser parte ❤️»: UN componente para la carga inicial de
+  // la galería compartida y para «Actualizar galería». Cuenta quién lo usa.
+  const corazon = { usos: 0, desde: 0, salida: null };
 
   // -- Comunicación (GET simple, sin cookies; el mismo mecanismo ya probado) --
 
@@ -775,8 +784,13 @@
   function actualizarControlesCompartida() {
     el.btnCargarMas.hidden = !compartida.siguiente;
     el.btnCargarMas.disabled = compartida.cargando;
-    el.btnActualizarGaleria.disabled = compartida.cargando;
-    el.btnActualizarGaleria.textContent = compartida.cargando ? 'Actualizando…' : 'Actualizar galería';
+    // Las consultas automáticas de fondo ya no apagan el botón (no parece
+    // deshabilitado cada 30 s); solo la carga inicial y la actualización manual.
+    const ocupado = actualizacionManual.activa || (compartida.cargando && !compartida.cargada);
+    el.btnActualizarGaleria.disabled = ocupado;
+    el.btnActualizarGaleria.setAttribute('aria-busy', ocupado ? 'true' : 'false');
+    el.btnActualizarGaleria.classList.toggle('boton-actualizando', ocupado);
+    el.btnActualizarGaleria.textContent = ocupado ? 'Actualizando…' : 'Actualizar galería';
     el.compartidaCuadricula.hidden = compartida.orden.length === 0;
   }
 
@@ -823,6 +837,7 @@
     if (posicion === -1 && !d) return false;
     if (posicion !== -1) compartida.orden.splice(posicion, 1);
     if (d) {
+      if (d.reintentoMin) { clearTimeout(d.reintentoMin); d.reintentoMin = null; }
       if (d.elemento) {
         if (compartida.observador && d.elemento.firstChild) compartida.observador.unobserve(d.elemento.firstChild);
         d.elemento.remove();
@@ -879,21 +894,29 @@
     if (compartida.cargando) return;
     compartida.cargando = true;
     actualizarControlesCompartida();
-    if (!compartida.cargada) mostrarEstadoCompartida('Cargando fotografías…', '');
+    // Primera carga real: el corazón «Preparando nuestros recuerdos…» (solo si
+    // el invitado está viendo «Compartida»; nunca en consultas de fondo).
+    const conCorazon = !compartida.cargada && compartidaVisible();
+    if (conCorazon) {
+      mostrarEstadoCompartida('', '');
+      mostrarCorazon('Preparando nuestros recuerdos…');
+    }
 
     const r = await consultarGaleria({ accion: 'lista', limite: String(PAGINA_COMPARTIDA) }, TIEMPO_LISTA_MS);
     compartida.cargando = false;
     compartida.ultimaConsulta = Date.now();
 
+    if (conCorazon) ocultarCorazon(); // sin esperar: los datos se muestran ya
     if (!r.respondio || !r.json.ok || !Array.isArray(r.json.fotos)) {
       mostrarEstadoCompartida(textoErrorLista(r), 'error');
       actualizarControlesCompartida();
-      return;
+      return false;
     }
 
     // Las miniaturas que fallaron se vuelven a intentar.
     Object.keys(compartida.datos).forEach(function (ref) {
-      if (compartida.datos[ref].estadoMin === 'error') compartida.datos[ref].estadoMin = 'pendiente';
+      const d = compartida.datos[ref];
+      if (d.estadoMin === 'error') { d.estadoMin = 'pendiente'; d.intentosMin = 0; }
     });
     compartida.orden = [];
     agregarFotosCompartidas(r.json.fotos, 'final');
@@ -911,15 +934,19 @@
       ? 'Todavía no hay fotografías compartidas. ¡Sé la primera persona en compartir una!'
       : '', '');
     actualizarControlesCompartida();
+    return true;
   }
 
   // Consulta periódica: si nada cambió, el servidor responde «sinCambios»
   // (unos pocos bytes). Las fotos nuevas se agregan arriba sin repetir.
-  async function buscarFotosNuevas() {
-    if (compartida.cargando) return;
+  // opciones.manual: la pidió el invitado («Actualizar galería»): muestra el
+  // error si falla y vuelve a pedir las miniaturas que no cargaron. Conserva
+  // todas las fotos que ya se ven (solo agrega las nuevas y quita las eliminadas).
+  async function buscarFotosNuevas(opciones) {
+    const manual = !!(opciones && opciones.manual);
+    if (compartida.cargando) return 'ocupado';
     if (!compartida.cargada) {
-      await cargarGaleriaCompartida();
-      return;
+      return (await cargarGaleriaCompartida()) ? 'ok' : 'error';
     }
     compartida.cargando = true;
     const r = await consultarGaleria({
@@ -930,13 +957,19 @@
     compartida.cargando = false;
     compartida.ultimaConsulta = Date.now();
     actualizarControlesCompartida();
-    if (!r.respondio || !r.json.ok) return; // silencioso: se reintenta en la próxima consulta
+    if (!r.respondio || !r.json.ok) {
+      // En segundo plano es silencioso (se reintenta solo); a mano se avisa.
+      if (manual) mostrarEstadoCompartida(textoErrorLista(r), 'error');
+      return 'error';
+    }
     compartida.desactualizada = false;
+    if (manual) reintentarMiniaturasFallidas();
     if (r.json.sinCambios) {
       compartida.total = r.json.total;
-      return;
+      if (manual && !compartida.avisoNuevas) mostrarEstadoCompartida('', '');
+      return 'ok';
     }
-    if (!Array.isArray(r.json.fotos)) return;
+    if (!Array.isArray(r.json.fotos)) return 'error';
 
     aplicarEliminadas(r.json.eliminadas);
     const nuevas = agregarFotosCompartidas(r.json.fotos, 'inicio');
@@ -951,6 +984,91 @@
       mostrarEstadoCompartida('', '');
     }
     actualizarControlesCompartida();
+    return 'ok';
+  }
+
+  // ---- Corazón «Gracias por ser parte ❤️» (componente único) ----
+  // mostrarCorazon(texto): aparece (o, si ya está, solo cambia el texto).
+  // ocultarCorazon(): se va cuando nadie más lo usa; si la respuesta llegó muy
+  // rápido, se queda ~0.7 s para no parpadear (los datos ya se mostraron).
+  function mostrarCorazon(texto) {
+    const tarjeta = el.actualizandoGaleria;
+    el.actualizandoTexto.textContent = texto;
+    corazon.usos++;
+    if (corazon.salida) { clearTimeout(corazon.salida); corazon.salida = null; }
+    if (!tarjeta.hidden && !tarjeta.classList.contains('saliendo')) return;
+    tarjeta.classList.remove('saliendo', 'visible');
+    tarjeta.hidden = false;
+    void tarjeta.offsetWidth; // reinicia el dibujo del corazón
+    tarjeta.classList.add('visible');
+    el.panelCompartida.setAttribute('aria-busy', 'true');
+    corazon.desde = Date.now();
+  }
+
+  function ocultarCorazon() {
+    if (corazon.usos === 0) return Promise.resolve();
+    corazon.usos--;
+    if (corazon.usos > 0) return Promise.resolve();
+    const tarjeta = el.actualizandoGaleria;
+    const espera = Math.max(0, 700 - (Date.now() - corazon.desde));
+    return new Promise(function (resolve) {
+      corazon.salida = setTimeout(function () {
+        tarjeta.classList.add('saliendo');
+        corazon.salida = setTimeout(function () {
+          corazon.salida = null;
+          tarjeta.hidden = true;
+          tarjeta.classList.remove('visible', 'saliendo');
+          el.panelCompartida.setAttribute('aria-busy', 'false');
+          resolve();
+        }, 320);
+      }, espera);
+    });
+  }
+
+  // Al salir de «Compartida» (a «Mi galería» o al inicio) el corazón se quita
+  // enseguida; la consulta sigue en segundo plano y la galería queda lista.
+  function quitarCorazonYa() {
+    if (corazon.salida) { clearTimeout(corazon.salida); corazon.salida = null; }
+    corazon.usos = 0;
+    el.actualizandoGaleria.hidden = true;
+    el.actualizandoGaleria.classList.remove('visible', 'saliendo');
+    el.panelCompartida.setAttribute('aria-busy', 'false');
+  }
+
+  // Las miniaturas que fallaron se vuelven a pedir cuando estén a la vista.
+  function reintentarMiniaturasFallidas() {
+    Object.keys(compartida.datos).forEach(function (ref) {
+      const d = compartida.datos[ref];
+      if (d.estadoMin === 'error' && d.elemento) {
+        d.estadoMin = 'pendiente';
+        d.intentosMin = 0;
+        elementoCompartido(ref, false);
+      }
+    });
+  }
+
+  // ---- «Actualizar galería» con el corazón (solo cuando lo pulsa el invitado) ----
+  // El corazón se dibuja y late mientras la consulta REAL está pendiente. Si la
+  // respuesta llega muy rápido, se mantiene un instante (0.7 s) para que no
+  // parpadee; la galería ya se actualizó en cuanto llegó la respuesta.
+  async function actualizarGaleriaManual() {
+    if (actualizacionManual.activa) return;
+    actualizacionManual.activa = true;
+    actualizarControlesCompartida();
+    mostrarCorazon('Actualizando nuestros recuerdos…');
+    try {
+      // Si hay una consulta automática en curso, se espera a que termine (sin duplicar).
+      let espera = 0;
+      while (compartida.cargando && espera < 20000) { await esperar(120); espera += 120; }
+      await buscarFotosNuevas({ manual: true });
+    } catch (e) {
+      mostrarEstadoCompartida('No pudimos actualizar la galería. Revisa tu conexión e inténtalo de nuevo.', 'error');
+    } finally {
+      await ocultarCorazon();
+      actualizacionManual.activa = false;
+      actualizarControlesCompartida();
+      programarActualizacion();
+    }
   }
 
   // Aviso breve (5 s) cuando llegan fotos nuevas solas, sin mover la página.
@@ -1050,6 +1168,9 @@
       if (d.estadoMin === 'error') {
         marcador.className = 'compartida-marcador sin-imagen';
         marcador.textContent = 'Toca para verla';
+      } else if (d.estadoMin === 'no-disponible') {
+        marcador.className = 'compartida-marcador sin-imagen no-disponible';
+        marcador.textContent = 'No disponible';
       } else {
         marcador.className = 'compartida-marcador';
       }
@@ -1097,20 +1218,93 @@
         for (let i = 0; i < lote.length; i++) {
           const ref = lote[i];
           const d = compartida.datos[ref];
+          if (!d) continue; // se eliminó mientras tanto
           const m = recibidas[ref];
           if (m && typeof m.datos === 'string' && TIPOS_IMAGEN.test(m.tipo)) {
             const url = await miniaturaReducida(blobDesdeBase64(m.datos, m.tipo));
-            d.miniaturaUrl = url;
-            d.estadoMin = url ? 'lista' : 'error';
+            if (url) {
+              d.miniaturaUrl = url;
+              d.estadoMin = 'lista';
+              pintarMiniatura(ref);
+            } else {
+              miniaturaFallida(ref, 'imagen-danada');
+            }
           } else {
-            d.estadoMin = 'error';
+            // Sin respuesta (red) o el servidor no tiene miniatura todavía.
+            miniaturaFallida(ref, m && m.error ? m.error : 'sin-respuesta');
           }
-          pintarMiniatura(ref);
         }
       }
     } finally {
       compartida.cargandoMiniaturas = false;
     }
+  }
+
+  // Una miniatura que no llegó. Causa más común (comprobada): la foto se subió
+  // hace un momento y Google Drive todavía no generó su miniatura.
+  //   - «no-disponible»: el archivo ya no está → «No disponible» (definitivo).
+  //   - Foto propia («Tuya»): se usa la miniatura que ya está en este teléfono.
+  //   - Si no: hasta 3 reintentos espaciados, solo cuando la foto esté a la vista
+  //     (el último, pasados los 10 min que el servidor recuerda un fallo).
+  //     Después, «Toca para verla» (la foto completa sí se puede abrir).
+  const ESPERAS_MINIATURA_MS = [75000, 180000, 660000];
+
+  function miniaturaFallida(ref, motivo) {
+    const d = compartida.datos[ref];
+    if (!d) return;
+    if (motivo === 'no-disponible') {
+      d.estadoMin = 'no-disponible';
+      pintarMiniatura(ref);
+      return;
+    }
+    if (usarMiniaturaLocal(ref)) return;
+    d.intentosMin = (d.intentosMin || 0) + 1;
+    if (d.intentosMin > ESPERAS_MINIATURA_MS.length) {
+      d.estadoMin = 'error';
+      pintarMiniatura(ref);
+      return;
+    }
+    d.estadoMin = 'reintentar'; // se sigue viendo como «cargando», no como error
+    pintarMiniatura(ref);
+    if (d.reintentoMin) clearTimeout(d.reintentoMin);
+    d.reintentoMin = setTimeout(function () {
+      d.reintentoMin = null;
+      if (compartida.datos[ref] !== d || d.estadoMin !== 'reintentar' || !d.elemento || !d.elemento.isConnected) return;
+      d.estadoMin = 'pendiente';
+      const boton = d.elemento.firstChild;
+      if (compartida.observador) {
+        // Al volver a observarla, se pide solo si está (o cuando esté) a la vista.
+        compartida.observador.unobserve(boton);
+        compartida.observador.observe(boton);
+      } else {
+        pedirMiniatura(ref);
+      }
+    }, ESPERAS_MINIATURA_MS[d.intentosMin - 1]);
+  }
+
+  // Foto compartida desde ESTE teléfono: su miniatura ya está guardada aquí.
+  function usarMiniaturaLocal(ref) {
+    const d = compartida.datos[ref];
+    const local = fotoLocalDe(ref);
+    const blob = local && (local.miniaturaBlob || (local.jpeg && local.jpeg.blob) || local.archivo);
+    if (!d || !blob) return false;
+    d.estadoMin = 'local';
+    pintarMiniatura(ref);
+    miniaturaReducida(blob).then(function (url) {
+      if (compartida.datos[ref] !== d) return;
+      if (url) {
+        d.miniaturaUrl = url;
+        d.estadoMin = 'lista';
+      } else {
+        d.estadoMin = 'error';
+      }
+      pintarMiniatura(ref);
+    }, function () {
+      if (compartida.datos[ref] !== d) return;
+      d.estadoMin = 'error';
+      pintarMiniatura(ref);
+    });
+    return true;
   }
 
   if ('IntersectionObserver' in window) {
@@ -1382,6 +1576,7 @@
     if (esCompartida) {
       reanudarCompartida();
     } else {
+      quitarCorazonYa();
       detenerActualizacion();
     }
   }
@@ -3587,9 +3782,7 @@
   // Pestañas y botones de la galería compartida.
   el.pestanaCompartida.addEventListener('click', function () { mostrarPestana('compartida'); });
   el.pestanaMia.addEventListener('click', function () { mostrarPestana('mia'); });
-  el.btnActualizarGaleria.addEventListener('click', function () {
-    cargarGaleriaCompartida().then(programarActualizacion);
-  });
+  el.btnActualizarGaleria.addEventListener('click', actualizarGaleriaManual);
   el.btnCargarMas.addEventListener('click', cargarMasCompartidas);
 
   el.visorCerrar.addEventListener('click', cerrarVisor);

@@ -2123,13 +2123,13 @@ body.transicion-abierta {
 .destello {
   transform-origin: center;
   opacity: 0;
-  animation: destello 0.9s ease-in-out 0.5s 2 both;
+  animation: paloma-destello 0.9s ease-in-out 0.5s 2 both;
 }
 .destello.d1 { transform-origin: 18px 24.5px; }
 .destello.d2 { transform-origin: 122px 17.6px; animation-delay: 0.7s; }
 .destello.d3 { transform-origin: 128px 73.2px; animation-delay: 0.9s; }
 .destello.d4 { transform-origin: 10px 76.8px; animation-delay: 1.1s; }
-@keyframes destello {
+@keyframes paloma-destello {
   0%, 100% { opacity: 0; transform: scale(0.6); }
   50%      { opacity: 0.85; transform: scale(1); }
 }
@@ -2366,4 +2366,186 @@ body.transicion-abierta {
   .bienvenida {
     animation: bienvenida-seguro 0.3s ease 2s forwards !important;
   }
+}
+
+/* ---------- Botones de las galerías: jerarquía clara y con contraste ---------- */
+/* Principal: verde oscuro («Volver al inicio»). Secundarios: marfil con borde
+   salvia o dorado. Destructiva suave: terracota («Limpiar mi galería»). */
+.acciones-galeria .boton-secundario {
+  color: var(--verde);
+  background: var(--crema-claro);
+  border-color: #7C8A6D;
+  box-shadow: 0 4px 12px rgba(52, 76, 61, 0.1);
+  font-weight: 600;
+}
+.acciones-galeria .boton-secundario.boton-dorado {
+  border-color: var(--dorado);
+}
+.boton-peligro-suave {
+  color: #8A3F30;
+  background: #FBF1EC;
+  border-color: rgba(138, 63, 48, 0.45);
+  box-shadow: none;
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .acciones-galeria .boton-secundario:hover:not(:disabled) {
+    color: var(--verde);
+    background: #F3F1E8;
+    border-color: var(--verde);
+  }
+  .boton-peligro-suave:hover:not(:disabled) {
+    color: #7A3326;
+    background: #F7E6DE;
+    border-color: rgba(138, 63, 48, 0.7);
+  }
+}
+.acciones-galeria .boton:active:not(:disabled),
+.aviso-pendientes-boton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+/* Deshabilitado: claramente distinto (gris y sin sombra), nunca confundible con activo. */
+.acciones-galeria .boton:disabled {
+  opacity: 0.5;
+  filter: grayscale(0.7);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+/* «Actualizar galería» mientras trabaja: un pequeño indicador giratorio en el botón. */
+.acciones-galeria .boton.boton-actualizando:disabled {
+  opacity: 0.85;
+  filter: none;
+  cursor: progress;
+}
+.acciones-galeria .boton.boton-actualizando.icono::before {
+  -webkit-mask: none;
+  mask: none;
+  background: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(52, 76, 61, 0.25);
+  border-top-color: var(--verde);
+  border-radius: 50%;
+  animation: girar 0.9s linear infinite;
+}
+/* «Reintentar» (fotos sin enviar): botón verde, claramente activo. */
+.aviso-pendientes-boton {
+  color: var(--crema);
+  background: var(--verde);
+  border-color: var(--verde);
+  min-height: 36px;
+}
+@media (hover: hover) {
+  .aviso-pendientes-boton:hover:not(:disabled) {
+    background: var(--verde-hover);
+  }
+}
+
+/* ---------- «Actualizar galería»: corazón que se dibuja y late ---------- */
+.actualizando {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 25; /* bajo los cuadros de diálogo; no tapa toda la app */
+  width: min(280px, 82vw);
+  padding: 22px 20px 18px;
+  text-align: center;
+  background: rgba(255, 253, 248, 0.94);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--borde-dorado);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: 0 18px 44px rgba(52, 76, 61, 0.18);
+  transform: translate(-50%, -50%) scale(0.94);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+.actualizando.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+.actualizando.saliendo {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.97);
+  transition-duration: 0.3s;
+}
+.corazon {
+  display: block;
+  width: 72px;
+  height: 68px;
+  margin: 0 auto 10px;
+  overflow: visible;
+}
+.corazon-relleno,
+.corazon-trazo {
+  transform-box: view-box;
+  transform-origin: 32px 30px;
+}
+.corazon-trazo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.corazon-relleno {
+  opacity: 0;
+}
+.actualizando.visible .corazon-trazo {
+  animation:
+    corazon-dibuja 0.7s ease-out both,
+    corazon-late 1.25s ease-in-out 0.8s infinite;
+}
+.actualizando.visible .corazon-relleno {
+  animation:
+    aparece 0.35s ease 0.55s both,
+    corazon-late 1.25s ease-in-out 0.8s infinite;
+}
+@keyframes corazon-dibuja {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes corazon-late {
+  0%, 100% { transform: scale(1); }
+  14%      { transform: scale(1.09); }
+  28%      { transform: scale(1); }
+  42%      { transform: scale(1.05); }
+  70%      { transform: scale(1); }
+}
+.corazon-destello {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.actualizando.visible .corazon-destello {
+  animation: paloma-destello 1.4s ease-in-out 0.7s infinite;
+}
+.actualizando.visible .corazon-destello.cd2 {
+  animation-delay: 1.3s;
+}
+.actualizando-titulo {
+  margin: 0;
+  font-family: var(--fuente-titulos);
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--verde);
+}
+.actualizando-texto {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+/* Menos movimiento: corazón dibujado y quieto, sin latidos ni destellos. */
+@media (prefers-reduced-motion: reduce) {
+  .actualizando.visible .corazon-trazo,
+  .actualizando.visible .corazon-relleno {
+    animation: none !important;
+    stroke-dashoffset: 0;
+    opacity: 1;
+    transform: none;
+  }
+  .corazon-destello {
+    display: none;
+  }
+}
+.compartida-marcador.no-disponible {
+  color: #8A3F30;
 }

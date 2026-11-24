@@ -33,7 +33,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=Great+Vibes&family=Montserrat:wght@400;500;600&display=swap">
 
   <!-- "?v=" obliga al navegador a descargar la versión nueva tras cada cambio. -->
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=41">
 </head>
 <body>
   <!--
@@ -230,7 +230,7 @@
         <ul id="compartida-cuadricula" class="galeria-cuadricula"></ul>
         <div class="acciones acciones-galeria">
           <button type="button" id="btn-cargar-mas" class="boton boton-secundario" hidden>Cargar más fotografías</button>
-          <button type="button" id="btn-actualizar-galeria" class="boton boton-texto icono icono-repetir">Actualizar galería</button>
+          <button type="button" id="btn-actualizar-galeria" class="boton boton-secundario boton-dorado icono icono-repetir">Actualizar galería</button>
         </div>
       </div>
 
@@ -252,8 +252,8 @@
       <!-- Botones a la par. «Limpiar mi galería» solo se ve en la pestaña «Mi galería»
            cuando tiene fotos; borra lo guardado en este teléfono, nunca Google Drive. -->
       <div class="acciones acciones-galeria acciones-par">
-        <button type="button" id="btn-volver-inicio" class="boton boton-secundario icono icono-inicio">Volver al inicio</button>
-        <button type="button" id="btn-limpiar-mi-galeria" class="boton boton-texto icono icono-limpiar" hidden>Limpiar mi galería</button>
+        <button type="button" id="btn-volver-inicio" class="boton icono icono-inicio">Volver al inicio</button>
+        <button type="button" id="btn-limpiar-mi-galeria" class="boton boton-peligro-suave icono icono-limpiar" hidden>Limpiar mi galería</button>
       </div>
     </section>
   </main>
@@ -345,6 +345,33 @@
       <p class="transicion-texto">Cada recuerdo es parte de nuestra historia</p>
       <p class="transicion-firma">Héctor &amp; Martha <span aria-hidden="true">♡</span></p>
     </div>
+  </div>
+
+  <!--
+    Corazón de la galería compartida (un solo componente para dos momentos):
+    al abrirla por primera vez («Preparando…») y al pulsar «Actualizar
+    galería» («Actualizando…»). Late mientras el servidor responde de verdad.
+  -->
+  <div id="actualizando-galeria" class="actualizando" role="status" aria-live="polite" hidden>
+    <svg class="corazon" viewBox="0 0 64 60" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="corazon-oro" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="58" y2="54">
+          <stop offset="0" stop-color="#E6D099"/>
+          <stop offset="0.55" stop-color="#C6A766"/>
+          <stop offset="1" stop-color="#A3833F"/>
+        </linearGradient>
+        <linearGradient id="corazon-relleno" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F3E7CC"/>
+          <stop offset="1" stop-color="#E6D5AE"/>
+        </linearGradient>
+      </defs>
+      <path class="corazon-relleno" d="M32 54C13 41 5 31 5 20 5 11 12 5 20 5c5.5 0 9.5 3 12 7.5C34.5 8 38.5 5 44 5c8 0 15 6 15 15 0 11-8 21-27 34z" fill="url(#corazon-relleno)"/>
+      <path class="corazon-trazo" pathLength="1" d="M32 54C13 41 5 31 5 20 5 11 12 5 20 5c5.5 0 9.5 3 12 7.5C34.5 8 38.5 5 44 5c8 0 15 6 15 15 0 11-8 21-27 34z" fill="none" stroke="url(#corazon-oro)" stroke-width="2.4" stroke-linejoin="round"/>
+      <path class="corazon-destello cd1" d="M58 6l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="#C6A766"/>
+      <path class="corazon-destello cd2" d="M5 44l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" fill="#C6A766"/>
+    </svg>
+    <p class="actualizando-titulo">Gracias por ser parte</p>
+    <p id="actualizando-texto" class="actualizando-texto">Actualizando nuestros recuerdos…</p>
   </div>
 
   <!-- Visor de una fotografía en tamaño grande (pantalla completa). -->
@@ -459,6 +486,6 @@
 
   <!-- config.js: configuración PÚBLICA del servidor (sin contraseñas). -->
   <script src="config.js?v=3"></script>
-  <script src="script.js?v=40"></script>
+  <script src="script.js?v=44"></script>
 </body>
 </html>

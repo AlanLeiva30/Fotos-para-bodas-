@@ -1002,6 +1002,34 @@ body:has(#seccion-captura[hidden])::after {
   }
 }
 
+/* «Guardar» y «Eliminar» lado a lado, centrados; si solo hay uno, queda al centro. */
+.visor-botones {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 10px;
+}
+
+.visor-botones .visor-guardar {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Teléfonos angostos: un poco más compactos para que quepan los dos. */
+@media (max-width: 420px) {
+  .visor-botones .visor-guardar {
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 0.76rem;
+    letter-spacing: 0;
+    gap: 6px;
+  }
+}
+
 /* «Guardar fotografía» (solo galería compartida): discreto, con borde dorado. */
 .visor-guardar {
   align-self: center;

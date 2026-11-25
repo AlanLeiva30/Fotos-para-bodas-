@@ -33,7 +33,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=Great+Vibes&family=Montserrat:wght@400;500;600&display=swap">
 
   <!-- "?v=" obliga al navegador a descargar la versión nueva tras cada cambio. -->
-  <link rel="stylesheet" href="style.css?v=41">
+  <link rel="stylesheet" href="style.css?v=42">
 </head>
 <body>
   <!--
@@ -381,8 +381,11 @@
     </div>
     <p id="visor-contador" class="visor-contador"></p>
     <!-- Solo en la galería compartida: guarda la foto completa (iPhone: menú compartir; Android y computadora: descarga JPEG). -->
-    <button type="button" id="visor-guardar" class="boton visor-guardar icono icono-guardar" hidden>Guardar fotografía</button>
-    <button type="button" id="visor-eliminar" class="boton visor-guardar icono icono-eliminar" hidden>Eliminar foto</button>
+    <!-- «Guardar» y «Eliminar» en la misma línea (si solo hay uno, queda centrado). -->
+    <div class="visor-botones">
+      <button type="button" id="visor-guardar" class="boton visor-guardar icono icono-guardar" hidden>Guardar fotografía</button>
+      <button type="button" id="visor-eliminar" class="boton visor-guardar icono icono-eliminar" hidden>Eliminar foto</button>
+    </div>
     <div class="visor-acciones">
       <button type="button" id="visor-anterior" class="boton boton-secundario icono icono-anterior" aria-label="Fotografía anterior">Anterior</button>
       <button type="button" id="visor-cerrar" class="boton boton-secundario icono icono-cerrar">Cerrar</button>

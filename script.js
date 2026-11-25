@@ -502,6 +502,8 @@
   }
 
   function abrirGaleria() {
+    // Un doble toque no agrega otra entrada al historial (si no, «atrás» tardaría en salir).
+    if (!el.seccionGaleria.hidden) return;
     mostrarGaleriaUI();
     history.pushState({ pantalla: 'galeria' }, '');
   }
@@ -633,10 +635,18 @@
   }
 
   function abrirVisor(indice, boton) {
-    botonQueAbrioVisor = boton || null;
+    const yaAbierto = visorEnHistorial();
+    if (!yaAbierto) botonQueAbrioVisor = boton || null;
     fuenteVisor = 'local';
     mostrarVisorUI(indice);
-    history.pushState({ pantalla: 'visor', indice: indice }, '');
+    // Doble toque: se reemplaza la entrada en vez de apilar otra.
+    if (yaAbierto) history.replaceState({ pantalla: 'visor', indice: indice }, '');
+    else history.pushState({ pantalla: 'visor', indice: indice }, '');
+  }
+
+  // El visor ya está abierto y tiene su entrada en el historial.
+  function visorEnHistorial() {
+    return !el.visor.hidden && !!history.state && history.state.pantalla === 'visor';
   }
 
   function cerrarVisor() {
@@ -1365,9 +1375,12 @@
   // -- Visor de fotos compartidas (foto grande solo al abrirla) --
 
   function abrirVisorCompartida(ref, boton) {
-    botonQueAbrioVisor = boton || null;
+    const yaAbierto = visorEnHistorial();
+    if (!yaAbierto) botonQueAbrioVisor = boton || null;
     mostrarVisorCompartidaUI(ref);
-    history.pushState({ pantalla: 'visor', fuente: 'compartida', ref: ref }, '');
+    // Doble toque: se reemplaza la entrada en vez de apilar otra.
+    if (yaAbierto) history.replaceState({ pantalla: 'visor', fuente: 'compartida', ref: ref }, '');
+    else history.pushState({ pantalla: 'visor', fuente: 'compartida', ref: ref }, '');
   }
 
   function mostrarVisorCompartidaUI(ref) {

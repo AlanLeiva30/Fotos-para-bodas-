@@ -15,7 +15,7 @@
  *   comprobar que la respuesta viene realmente de nuestro servidor.
  */
 window.BODA_CONFIG = Object.freeze({
-  urlServidor: 'https://script.google.com/macros/s/AKfycbzeqWkCR16hHY7eOE3l7Su6GXqYq71MpFvXixOwaGEjOhaQ4E0itNCJ3w2aDXi4RQF00A/exec',
-  claveEvento: 'hm-2c885b4d030a4a33', // identificador público (no es una contraseña)
-  servicio: 'hector-martha-pruebas'
+  urlServidor: 'https://script.google.com/macros/s/AKfycby-x8SrnJCce0Krrj6XL_WQaN3Rzrw3wlZpOeEJgdBewOXfxf_81fJQA-8YC2fzL4ww/exec',
+  claveEvento: 'hm-380b87d546ea4a57', // identificador público (no es una contraseña)
+  servicio: 'hector-martha-oficial'
 });

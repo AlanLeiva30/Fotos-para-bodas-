@@ -33,7 +33,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&family=Great+Vibes&family=Montserrat:wght@400;500;600&display=swap">
 
   <!-- "?v=" obliga al navegador a descargar la versión nueva tras cada cambio. -->
-  <link rel="stylesheet" href="style.css?v=42">
+  <link rel="stylesheet" href="style.css?v=43">
 </head>
 <body>
   <!--
@@ -454,12 +454,34 @@
   <div id="camara" class="camara" role="dialog" aria-modal="true" aria-label="Cámara" hidden>
     <video id="camara-video" class="camara-video" autoplay playsinline muted></video>
     <div id="camara-flash" class="camara-flash" aria-hidden="true"></div>
+    <!-- Flash de pantalla (cámara frontal): ilumina el rostro ANTES de capturar.
+         Es distinto del destello decorativo de arriba, que solo indica la captura. -->
+    <div id="camara-luz" class="camara-luz" aria-hidden="true"></div>
 
     <div class="camara-superior">
       <button type="button" id="camara-cerrar" class="camara-boton-redondo icono icono-cerrar" aria-label="Cerrar cámara"></button>
       <p class="camara-marca" aria-hidden="true">Héctor <span>&amp;</span> Martha</p>
-      <span class="camara-espaciador" aria-hidden="true"></span>
+      <div class="camara-ajustes">
+        <button type="button" id="camara-flash-modo" class="camara-boton-redondo camara-boton-ajuste icono icono-rayo" aria-pressed="false" aria-label="Flash: apagado"></button>
+        <button type="button" id="camara-sol" class="camara-boton-redondo camara-boton-ajuste icono icono-sol" aria-expanded="false" aria-controls="camara-brillo" aria-label="Luz de la fotografía"></button>
+      </div>
     </div>
+
+    <!-- Control de luz desplegable (se oculta solo). -->
+    <div id="camara-brillo" class="camara-brillo" role="group" aria-label="Luz de la fotografía" hidden>
+      <div class="camara-brillo-fila">
+        <button type="button" id="camara-brillo-menos" class="camara-brillo-paso" aria-label="Menos luz">&minus;</button>
+        <span class="camara-brillo-puntos" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span id="camara-brillo-nivel" class="camara-brillo-nivel" aria-live="polite">0</span>
+        <button type="button" id="camara-brillo-mas" class="camara-brillo-paso" aria-label="Más luz">+</button>
+      </div>
+      <div class="camara-brillo-pie">
+        <span id="camara-brillo-tipo" class="camara-brillo-tipo">Brillo digital</span>
+        <button type="button" id="camara-brillo-normal" class="camara-brillo-normal">Normal</button>
+      </div>
+    </div>
+
+    <p id="camara-aviso" class="camara-aviso" role="status" aria-live="polite" hidden></p>
 
     <div id="camara-cargando" class="camara-cargando" role="status" aria-live="polite">
       <span class="camara-spinner" aria-hidden="true"></span>
@@ -479,6 +501,11 @@
     </div>
 
     <div class="camara-inferior">
+      <div id="camara-zoom" class="camara-zoom" role="group" aria-label="Zoom">
+        <button type="button" class="camara-zoom-opcion activo" data-zoom="1" aria-pressed="true">1×</button>
+        <button type="button" class="camara-zoom-opcion" data-zoom="2" aria-pressed="false">2×</button>
+        <button type="button" class="camara-zoom-opcion" data-zoom="3" aria-pressed="false">3×</button>
+      </div>
       <button type="button" id="camara-galeria" class="camara-boton-redondo icono icono-imagen" aria-label="Elegir una fotografía de la galería"></button>
       <button type="button" id="camara-disparador" class="camara-disparador" aria-label="Capturar fotografía" disabled><span></span></button>
       <button type="button" id="camara-cambiar" class="camara-boton-redondo icono icono-cambiar" aria-label="Cambiar entre cámara frontal y trasera" hidden></button>
@@ -489,6 +516,6 @@
 
   <!-- config.js: configuración PÚBLICA del servidor (sin contraseñas). -->
   <script src="config.js?v=4"></script>
-  <script src="script.js?v=47"></script>
+  <script src="script.js?v=48"></script>
 </body>
 </html>

@@ -141,7 +141,19 @@
     camaraErrorCerrar: document.getElementById('camara-error-cerrar'),
     camaraGaleria: document.getElementById('camara-galeria'),
     camaraDisparador: document.getElementById('camara-disparador'),
-    camaraCambiar: document.getElementById('camara-cambiar')
+    camaraCambiar: document.getElementById('camara-cambiar'),
+    camaraLuz: document.getElementById('camara-luz'),
+    camaraFlashModo: document.getElementById('camara-flash-modo'),
+    camaraSol: document.getElementById('camara-sol'),
+    camaraBrillo: document.getElementById('camara-brillo'),
+    camaraBrilloMenos: document.getElementById('camara-brillo-menos'),
+    camaraBrilloMas: document.getElementById('camara-brillo-mas'),
+    camaraBrilloNormal: document.getElementById('camara-brillo-normal'),
+    camaraBrilloNivel: document.getElementById('camara-brillo-nivel'),
+    camaraBrilloTipo: document.getElementById('camara-brillo-tipo'),
+    camaraBrilloPuntos: Array.prototype.slice.call(document.querySelectorAll('.camara-brillo-puntos i')),
+    camaraAviso: document.getElementById('camara-aviso'),
+    camaraZoomOpciones: Array.prototype.slice.call(document.querySelectorAll('.camara-zoom-opcion'))
   };
 
   // Estado de la cámara integrada.
@@ -152,7 +164,19 @@
     espejo: false,         // la cámara frontal se muestra como un espejo
     capturando: false,
     solicitud: 0,          // descarta respuestas tardías de getUserMedia
-    pausadaEnSegundoPlano: false
+    pausadaEnSegundoPlano: false,
+    restriccionesVideo: null, // las mismas de getUserMedia, para applyConstraints
+    // Ajustes elegidos por el invitado (se reinician con cada cámara).
+    ajustes: { zoom: 1, brillo: 0, flash: false },
+    // Lo que la cámara permite controlar de verdad (getCapabilities).
+    capac: { zoomFisico: null, exposicion: null, linterna: false },
+    zoomDigital: 1,        // parte del zoom que se hace recortando (vista y foto)
+    brilloDigital: 1,      // multiplicador de brillo digital (vista y foto)
+    zoomFisicoActual: 1,
+    zoomFisicoDeseado: 1,
+    zoomFisicoOcupado: false,
+    linternaEncendida: false,
+    cola: Promise.resolve() // applyConstraints de uno en uno
   };
 
   // Estado de la selección actual.
@@ -3480,6 +3504,13 @@
   // Detiene todas las pistas de video y libera la cámara del dispositivo.
   function detenerPistas() {
     if (camara.stream) {
+      // Apagar la linterna explícitamente (además, stop() libera la cámara).
+      if (camara.linternaEncendida) {
+        const pistaLuz = camara.stream.getVideoTracks()[0];
+        try {
+          if (pistaLuz && pistaLuz.applyConstraints) pistaLuz.applyConstraints({ advanced: [{ torch: false }] }).catch(function () {});
+        } catch (e) { /* sin linterna */ }
+      }
       camara.stream.getTracks().forEach(function (pista) {
         pista.onended = null;
         pista.stop();
@@ -3489,6 +3520,7 @@
     el.camaraVideo.pause();
     el.camaraVideo.srcObject = null;
     el.camaraDisparador.disabled = true;
+    reiniciarAjustesCamara();
   }
 
   // estadoUI: 'cargando' | 'lista' | 'error'
@@ -3602,6 +3634,7 @@
           return;
         }
         camara.stream = stream;
+        camara.restriccionesVideo = restricciones.video;
 
         const pista = stream.getVideoTracks()[0];
         const ajustes = pista && pista.getSettings ? pista.getSettings() : {};
@@ -3622,6 +3655,7 @@
           if (solicitud !== camara.solicitud) return;
           el.camaraDisparador.disabled = false;
           mostrarEstadoCamara('lista');
+          prepararAjustesCamara(solicitud);
           return actualizarBotonCambiar();
         });
       })
@@ -3675,14 +3709,44 @@
   }
 
   // Convierte el fotograma actual en una fotografía JPEG y abre la vista previa.
+  // Con el flash de pantalla (cámara frontal), primero se ilumina la pantalla,
+  // se espera a que la cámara ajuste la exposición y entonces se captura.
   function capturarFoto() {
     const video = el.camaraVideo;
     if (camara.capturando || !camara.stream || !video.videoWidth) return;
     camara.capturando = true;
     el.camaraDisparador.disabled = true;
+    ocultarPanelBrillo();
+    ocultarAvisoCamara();
 
-    const ancho = video.videoWidth;
-    const alto = video.videoHeight;
+    if (camara.ajustes.flash && tipoFlash() === 'pantalla') {
+      const solicitud = camara.solicitud;
+      el.camaraLuz.classList.add('activa');
+      setTimeout(function () {
+        if (!camara.abierta || solicitud !== camara.solicitud || !camara.stream || !video.videoWidth) {
+          // Se cerró o se interrumpió la cámara mientras tanto.
+          el.camaraLuz.classList.remove('activa');
+          camara.capturando = false;
+          return;
+        }
+        tomarFotograma(function () { el.camaraLuz.classList.remove('activa'); });
+      }, ESPERA_LUZ_PANTALLA_MS);
+      return;
+    }
+    tomarFotograma();
+  }
+
+  function tomarFotograma(despuesDeDibujar) {
+    const video = el.camaraVideo;
+    const anchoVideo = video.videoWidth;
+    const altoVideo = video.videoHeight;
+    // Zoom digital: recorte central, igual al que se ve en pantalla.
+    // Se guarda a la resolución real del recorte (no se inventan píxeles).
+    const zoom = Math.max(1, camara.zoomDigital || 1);
+    const ancho = Math.max(1, Math.round(anchoVideo / zoom));
+    const alto = Math.max(1, Math.round(altoVideo / zoom));
+    const origenX = Math.round((anchoVideo - ancho) / 2);
+    const origenY = Math.round((altoVideo - alto) / 2);
     const canvas = document.createElement('canvas');
     canvas.width = ancho;
     canvas.height = alto;
@@ -3692,7 +3756,9 @@
       contexto.translate(ancho, 0);
       contexto.scale(-1, 1);
     }
-    contexto.drawImage(video, 0, 0, ancho, alto);
+    contexto.drawImage(video, origenX, origenY, ancho, alto, 0, 0, ancho, alto);
+    aplicarBrilloDigital(contexto, canvas, camara.brilloDigital);
+    if (despuesDeDibujar) despuesDeDibujar();
 
     // Efecto de destello.
     el.camaraFlash.classList.remove('activo');
@@ -3723,6 +3789,367 @@
       mostrarVistaPrevia(archivo, 'camara-integrada');
     }, 'image/jpeg', 0.92);
   }
+
+  /* ---------- Cámara: zoom, luz y flash ---------- */
+  //
+  // Siempre se intenta primero el control REAL de la cámara (getCapabilities +
+  // applyConstraints). Si el navegador no lo permite, o no lo aplica, se usa un
+  // ajuste digital que se ve en pantalla Y se guarda igual en la foto.
+
+  const ZOOM_MAXIMO = 3;
+  const NIVEL_BRILLO_MAXIMO = 2;                 // niveles −2 … +2
+  const BRILLO_DIGITAL = { '-2': 0.7, '-1': 0.85, '0': 1, '1': 1.18, '2': 1.36 };
+  const EV_POR_NIVEL = 0.7;                      // exposición real: máx. ±1,4 EV
+  const ESPERA_LUZ_PANTALLA_MS = 450;            // la cámara frontal ajusta su exposición
+  const ESPERA_CAPACIDADES_MS = 800;             // algunos Android las informan tarde
+  const OCULTAR_BRILLO_MS = 6000;
+  const DURACION_AVISO_CAMARA_MS = 3500;
+
+  let temporizadorBrillo = null;
+  let temporizadorAvisoCamara = null;
+
+  function limitar(valor, min, max) {
+    return Math.min(max, Math.max(min, valor));
+  }
+
+  function ajustarAPaso(valor, rango) {
+    let v = limitar(valor, rango.min, rango.max);
+    if (rango.paso > 0) v = limitar(rango.min + Math.round((v - rango.min) / rango.paso) * rango.paso, rango.min, rango.max);
+    return Math.round(v * 1000) / 1000;
+  }
+
+  function pistaVideoCamara() {
+    return camara.stream ? camara.stream.getVideoTracks()[0] || null : null;
+  }
+
+  function ajustesPista() {
+    const pista = pistaVideoCamara();
+    try { return pista && pista.getSettings ? pista.getSettings() || {} : {}; } catch (e) { return {}; }
+  }
+
+  function reiniciarAjustesCamara() {
+    camara.ajustes = { zoom: 1, brillo: 0, flash: false };
+    camara.capac = { zoomFisico: null, exposicion: null, linterna: false };
+    camara.zoomDigital = 1;
+    camara.brilloDigital = 1;
+    camara.zoomFisicoActual = 1;
+    camara.zoomFisicoDeseado = 1;
+    camara.zoomFisicoOcupado = false;
+    camara.linternaEncendida = false;
+    camara.cola = Promise.resolve();
+    camara.restriccionesVideo = camara.stream ? camara.restriccionesVideo : null;
+    el.camaraLuz.classList.remove('activa');
+    ocultarPanelBrillo();
+    ocultarAvisoCamara();
+    aplicarVistaAjustes();
+  }
+
+  // Lee lo que la cámara permite controlar. Sin getCapabilities → todo digital.
+  function detectarCapacidades() {
+    const pista = pistaVideoCamara();
+    const capac = { zoomFisico: null, exposicion: null, linterna: false };
+    let c = {};
+    try { c = pista && typeof pista.getCapabilities === 'function' ? pista.getCapabilities() || {} : {}; } catch (e) { c = {}; }
+    const actual = ajustesPista();
+
+    if (c.zoom && isFinite(c.zoom.min) && isFinite(c.zoom.max) && c.zoom.max > c.zoom.min) {
+      // El zoom es RELATIVO al valor con el que abrió la cámara: no se supone
+      // que 2 o 3 correspondan a otro lente.
+      const base = limitar(typeof actual.zoom === 'number' ? actual.zoom : Math.max(c.zoom.min, 1), c.zoom.min, c.zoom.max);
+      if (c.zoom.max > base * 1.1) capac.zoomFisico = { min: c.zoom.min, max: c.zoom.max, paso: c.zoom.step || 0, base: base };
+    }
+    const ex = c.exposureCompensation;
+    if (ex && isFinite(ex.min) && isFinite(ex.max) && ex.min < 0 && ex.max > 0) {
+      capac.exposicion = { min: ex.min, max: ex.max, paso: ex.step || 0 };
+    }
+    capac.linterna = c.torch === true || (Array.isArray(c.torch) && c.torch.indexOf(true) !== -1);
+    return capac;
+  }
+
+  function prepararAjustesCamara(solicitud) {
+    if (solicitud !== camara.solicitud || !camara.stream) return;
+    camara.capac = detectarCapacidades();
+    aplicarVistaAjustes();
+    const c = camara.capac;
+    if (c.zoomFisico || c.exposicion || c.linterna) return;
+    setTimeout(function () {
+      if (solicitud !== camara.solicitud || !camara.stream) return;
+      const a = camara.ajustes;
+      // Si el invitado ya usa ajustes digitales, no se cambia nada a medias.
+      if (a.zoom !== 1 || a.brillo !== 0 || a.flash || camara.capturando) return;
+      camara.capac = detectarCapacidades();
+      aplicarVistaAjustes();
+    }, ESPERA_CAPACIDADES_MS);
+  }
+
+  // applyConstraints de uno en uno, sin cambiar la resolución pedida.
+  function aplicarRestriccionCamara(cambios) {
+    const pista = pistaVideoCamara();
+    const solicitud = camara.solicitud;
+    if (!pista || typeof pista.applyConstraints !== 'function') return Promise.reject(new Error('sin-control'));
+    const tarea = camara.cola.then(function () {
+      if (solicitud !== camara.solicitud || pistaVideoCamara() !== pista || pista.readyState !== 'live') {
+        throw new Error('camara-cambiada');
+      }
+      const r = Object.assign({}, camara.restriccionesVideo || {}, { advanced: [cambios] });
+      return pista.applyConstraints(r);
+    });
+    camara.cola = tarea.catch(function () {});
+    return tarea;
+  }
+
+  // --- Zoom ---
+
+  function fijarZoom(factor) {
+    factor = Math.round(limitar(factor, 1, ZOOM_MAXIMO) * 20) / 20;
+    camara.ajustes.zoom = factor;
+    const zf = camara.capac.zoomFisico;
+    const fisico = zf ? Math.min(factor, zf.max / zf.base) : 1;
+    camara.zoomDigital = factor / fisico;
+    aplicarVistaAjustes();
+    if (zf) solicitarZoomFisico(fisico);
+  }
+
+  // Aplica solo el último valor pedido (útil con el gesto de dos dedos).
+  function solicitarZoomFisico(fisico) {
+    camara.zoomFisicoDeseado = fisico;
+    if (camara.zoomFisicoOcupado) return;
+    camara.zoomFisicoOcupado = true;
+    const solicitud = camara.solicitud;
+
+    function siguiente() {
+      const zf = camara.capac.zoomFisico;
+      const objetivo = camara.zoomFisicoDeseado;
+      if (solicitud !== camara.solicitud || !zf || Math.abs(objetivo - camara.zoomFisicoActual) < 0.01) {
+        if (solicitud === camara.solicitud) camara.zoomFisicoOcupado = false;
+        return;
+      }
+      const valor = ajustarAPaso(zf.base * objetivo, zf);
+      aplicarRestriccionCamara({ zoom: valor }).then(function () {
+        if (solicitud !== camara.solicitud) return;
+        const leido = ajustesPista().zoom;
+        if (typeof leido === 'number' && Math.abs(leido - valor) > Math.max(0.05, zf.paso || 0)) throw new Error('zoom-no-aplicado');
+        camara.zoomFisicoActual = objetivo;
+        siguiente();
+      }).catch(function () {
+        if (solicitud !== camara.solicitud) return;
+        // El navegador no aplicó el zoom real: se vuelve al original y se usa
+        // zoom digital, para que lo que se ve sea lo que se guarda.
+        camara.capac.zoomFisico = null;
+        camara.zoomFisicoActual = 1;
+        camara.zoomFisicoOcupado = false;
+        aplicarRestriccionCamara({ zoom: zf.base }).catch(function () {});
+        fijarZoom(camara.ajustes.zoom);
+      });
+    }
+    siguiente();
+  }
+
+  // --- Luz (exposición real o brillo digital) ---
+
+  function fijarBrillo(nivel) {
+    nivel = limitar(Math.round(nivel), -NIVEL_BRILLO_MAXIMO, NIVEL_BRILLO_MAXIMO);
+    camara.ajustes.brillo = nivel;
+    const ex = camara.capac.exposicion;
+    if (ex) {
+      camara.brilloDigital = 1;
+      const solicitud = camara.solicitud;
+      const ev = ajustarAPaso(nivel * EV_POR_NIVEL, ex);
+      aplicarRestriccionCamara({ exposureCompensation: ev }).then(function () {
+        const leido = ajustesPista().exposureCompensation;
+        if (typeof leido === 'number' && Math.abs(leido - ev) > Math.max(0.05, ex.paso || 0)) throw new Error('exposicion-no-aplicada');
+      }).catch(function () {
+        if (solicitud !== camara.solicitud) return;
+        // Sin exposición real: se pasa al brillo digital.
+        camara.capac.exposicion = null;
+        aplicarRestriccionCamara({ exposureCompensation: 0 }).catch(function () {});
+        fijarBrillo(camara.ajustes.brillo);
+      });
+    } else {
+      camara.brilloDigital = BRILLO_DIGITAL[String(nivel)];
+    }
+    aplicarVistaAjustes();
+  }
+
+  // Mismo efecto que el filtro CSS brightness() de la vista previa:
+  // más luz = suma de la imagen sobre sí misma; menos luz = velo negro.
+  function aplicarBrilloDigital(contexto, canvas, factor) {
+    if (!factor || factor === 1) return;
+    contexto.save();
+    contexto.setTransform(1, 0, 0, 1, 0, 0);
+    if (factor > 1) {
+      contexto.globalCompositeOperation = 'lighter';
+      contexto.globalAlpha = Math.min(1, factor - 1);
+      contexto.drawImage(canvas, 0, 0);
+    } else {
+      contexto.globalAlpha = Math.min(1, 1 - factor);
+      contexto.fillStyle = '#000';
+      contexto.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    contexto.restore();
+  }
+
+  function mostrarPanelBrillo() {
+    ocultarAvisoCamara();
+    el.camaraBrillo.hidden = false;
+    el.camaraSol.setAttribute('aria-expanded', 'true');
+    programarOcultarBrillo();
+  }
+
+  function ocultarPanelBrillo() {
+    clearTimeout(temporizadorBrillo);
+    temporizadorBrillo = null;
+    el.camaraBrillo.hidden = true;
+    el.camaraSol.setAttribute('aria-expanded', 'false');
+  }
+
+  function programarOcultarBrillo() {
+    clearTimeout(temporizadorBrillo);
+    temporizadorBrillo = setTimeout(ocultarPanelBrillo, OCULTAR_BRILLO_MS);
+  }
+
+  // --- Flash ---
+
+  // 'pantalla' (frontal) · 'linterna' (LED trasero) · null (no disponible).
+  function tipoFlash() {
+    if (camara.espejo) return 'pantalla';
+    return camara.capac.linterna ? 'linterna' : null;
+  }
+
+  function alternarFlash() {
+    if (!camara.stream || camara.capturando) return;
+    const tipo = tipoFlash();
+    if (!tipo) {
+      mostrarAvisoCamara('Este teléfono no permite usar el flash desde la página. Si lo necesitas, usa la cámara del teléfono.');
+      return;
+    }
+    const activar = !camara.ajustes.flash;
+    if (tipo === 'pantalla') {
+      camara.ajustes.flash = activar;
+      aplicarVistaAjustes();
+      mostrarAvisoCamara(activar ? 'Flash de pantalla: se iluminará al tomar la foto.' : 'Flash apagado');
+      return;
+    }
+    // Linterna: queda encendida mientras el flash esté activo (lo que se ve
+    // es lo que se fotografía). No es un flash sincronizado.
+    const solicitud = camara.solicitud;
+    camara.ajustes.flash = activar;
+    camara.linternaEncendida = true; // por si acaso: se intentará apagar al salir
+    aplicarVistaAjustes();
+    aplicarRestriccionCamara({ torch: activar }).then(function () {
+      if (solicitud !== camara.solicitud) return;
+      camara.linternaEncendida = activar;
+      mostrarAvisoCamara(activar ? 'Flash encendido' : 'Flash apagado');
+    }).catch(function () {
+      if (solicitud !== camara.solicitud) return;
+      camara.ajustes.flash = false;
+      camara.capac.linterna = false;
+      camara.linternaEncendida = false;
+      aplicarVistaAjustes();
+      mostrarAvisoCamara('No se pudo encender el flash de este teléfono. Puedes usar la cámara del teléfono.');
+    });
+  }
+
+  function mostrarAvisoCamara(texto) {
+    if (!el.camaraBrillo.hidden) ocultarPanelBrillo();
+    el.camaraAviso.textContent = texto;
+    el.camaraAviso.hidden = false;
+    clearTimeout(temporizadorAvisoCamara);
+    temporizadorAvisoCamara = setTimeout(ocultarAvisoCamara, DURACION_AVISO_CAMARA_MS);
+  }
+
+  function ocultarAvisoCamara() {
+    clearTimeout(temporizadorAvisoCamara);
+    temporizadorAvisoCamara = null;
+    el.camaraAviso.hidden = true;
+  }
+
+  // --- Vista: refleja los ajustes en pantalla y en los botones ---
+
+  function aplicarVistaAjustes() {
+    const video = el.camaraVideo;
+    video.style.setProperty('--zoom-digital', String(Math.round((camara.zoomDigital || 1) * 1000) / 1000));
+    video.style.filter = camara.brilloDigital !== 1 ? 'brightness(' + camara.brilloDigital + ')' : '';
+
+    // Zoom: se marca la opción más alta que no supera el zoom actual
+    // (con el gesto, muestra el valor exacto, p. ej. «1,6×»).
+    const z = camara.ajustes.zoom;
+    let activo = null;
+    el.camaraZoomOpciones.forEach(function (b) {
+      if (Number(b.dataset.zoom) <= z + 0.001) activo = b;
+    });
+    el.camaraZoomOpciones.forEach(function (b) {
+      const n = Number(b.dataset.zoom);
+      const es = b === activo;
+      b.classList.toggle('activo', es);
+      b.setAttribute('aria-pressed', es ? 'true' : 'false');
+      b.textContent = (es && Math.abs(z - n) > 0.04 ? z.toFixed(1).replace('.', ',') : String(n)) + '×';
+    });
+
+    // Luz
+    const nivel = camara.ajustes.brillo;
+    el.camaraSol.classList.toggle('ajustado', nivel !== 0);
+    el.camaraBrilloNivel.textContent = nivel > 0 ? '+' + nivel : (nivel < 0 ? '−' + (-nivel) : '0');
+    el.camaraBrilloPuntos.forEach(function (p, i) {
+      p.classList.toggle('activo', i - NIVEL_BRILLO_MAXIMO === nivel);
+    });
+    el.camaraBrilloMenos.disabled = nivel <= -NIVEL_BRILLO_MAXIMO;
+    el.camaraBrilloMas.disabled = nivel >= NIVEL_BRILLO_MAXIMO;
+    el.camaraBrilloNormal.disabled = nivel === 0;
+    el.camaraBrilloTipo.textContent = camara.capac.exposicion ? 'Exposición de la cámara' : 'Brillo digital';
+
+    // Flash
+    const tipo = tipoFlash();
+    const encendido = camara.ajustes.flash && !!tipo;
+    el.camaraFlashModo.classList.toggle('activo', encendido);
+    el.camaraFlashModo.classList.toggle('no-disponible', !tipo);
+    el.camaraFlashModo.setAttribute('aria-pressed', encendido ? 'true' : 'false');
+    el.camaraFlashModo.setAttribute('aria-label', !tipo
+      ? 'Flash no disponible en esta cámara'
+      : (tipo === 'pantalla' ? 'Flash de pantalla: ' : 'Flash: ') + (encendido ? 'encendido' : 'apagado'));
+  }
+
+  // --- Gesto de dos dedos (zoom) ---
+
+  const pellizco = { activo: false, distancia: 0, zoomInicial: 1, pendiente: null, cuadro: 0 };
+
+  function distanciaToques(toques) {
+    const dx = toques[0].clientX - toques[1].clientX;
+    const dy = toques[0].clientY - toques[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  el.camara.addEventListener('touchstart', function (e) {
+    if (!camara.abierta || !camara.stream || camara.capturando || e.touches.length !== 2) return;
+    pellizco.activo = true;
+    pellizco.distancia = distanciaToques(e.touches);
+    pellizco.zoomInicial = camara.ajustes.zoom;
+    e.preventDefault();
+  }, { passive: false });
+
+  el.camara.addEventListener('touchmove', function (e) {
+    if (!pellizco.activo || e.touches.length !== 2) return;
+    e.preventDefault();
+    if (!camara.stream || pellizco.distancia <= 0) return;
+    pellizco.pendiente = pellizco.zoomInicial * distanciaToques(e.touches) / pellizco.distancia;
+    if (pellizco.cuadro) return;
+    pellizco.cuadro = requestAnimationFrame(function () {
+      pellizco.cuadro = 0;
+      if (pellizco.pendiente != null && camara.stream) fijarZoom(pellizco.pendiente);
+      pellizco.pendiente = null;
+    });
+  }, { passive: false });
+
+  function terminarPellizco(e) {
+    if (e.touches.length < 2) pellizco.activo = false;
+  }
+  el.camara.addEventListener('touchend', terminarPellizco);
+  el.camara.addEventListener('touchcancel', terminarPellizco);
+
+  // iPhone: evita que el gesto agrande la página en lugar de la cámara.
+  document.addEventListener('gesturestart', function (e) {
+    if (camara.abierta) e.preventDefault();
+  });
 
   // Abre la cámara nativa o la galería desde la interfaz de cámara.
   // Se llama dentro del clic para que iOS y Android permitan abrir el selector.
@@ -3874,6 +4301,32 @@
   el.camaraGaleria.addEventListener('click', function () {
     salirDeCamaraHacia('galeria');
   });
+  el.camaraZoomOpciones.forEach(function (boton) {
+    boton.addEventListener('click', function () {
+      if (!camara.stream || camara.capturando) return;
+      fijarZoom(Number(boton.dataset.zoom));
+    });
+  });
+  el.camaraFlashModo.addEventListener('click', alternarFlash);
+  el.camaraSol.addEventListener('click', function () {
+    if (!camara.stream) return;
+    if (el.camaraBrillo.hidden) mostrarPanelBrillo();
+    else ocultarPanelBrillo();
+  });
+  el.camaraBrilloMenos.addEventListener('click', function () {
+    fijarBrillo(camara.ajustes.brillo - 1);
+    programarOcultarBrillo();
+  });
+  el.camaraBrilloMas.addEventListener('click', function () {
+    fijarBrillo(camara.ajustes.brillo + 1);
+    programarOcultarBrillo();
+  });
+  el.camaraBrilloNormal.addEventListener('click', function () {
+    fijarBrillo(0);
+    programarOcultarBrillo();
+  });
+  // Tocar la imagen cierra el control de luz.
+  el.camaraVideo.addEventListener('click', ocultarPanelBrillo);
 
   document.addEventListener('keydown', function (e) {
     if (camara.abierta) {

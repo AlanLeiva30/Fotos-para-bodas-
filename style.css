@@ -1232,7 +1232,9 @@ body.dialogo-abierto {
   object-fit: cover;
   background: #141C17;
   opacity: 0;
-  transition: opacity 0.4s ease;
+  /* Zoom digital: el mismo recorte central se aplica a la foto guardada. */
+  transform: scale(var(--zoom-digital, 1));
+  transition: opacity 0.4s ease, transform 0.15s ease;
 }
 
 .camara-lista .camara-video {
@@ -1241,7 +1243,7 @@ body.dialogo-abierto {
 
 /* La cámara frontal se ve como un espejo, igual que en el teléfono. */
 .camara-video-espejo {
-  transform: scaleX(-1);
+  transform: scaleX(-1) scale(var(--zoom-digital, 1));
 }
 
 .camara-flash {
@@ -1267,9 +1269,10 @@ body.dialogo-abierto {
   right: 0;
   left: 0;
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding:
     calc(12px + env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right))
@@ -1485,6 +1488,297 @@ body.dialogo-abierto {
   color: var(--texto-suave);
 }
 
+/* ---------- Cámara: zoom, luz y flash ---------- */
+
+.camara-superior > #camara-cerrar {
+  justify-self: start;
+}
+
+.camara-marca {
+  white-space: nowrap;
+}
+
+/* Flash y luz, a la derecha del nombre. */
+.camara-ajustes {
+  justify-self: end;
+  display: flex;
+  gap: 8px;
+}
+
+.camara-boton-ajuste {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.camara-boton-ajuste::before {
+  width: 20px;
+  height: 20px;
+}
+
+/* Se muestran cuando la cámara ya tiene imagen. */
+.camara:not(.camara-lista) .camara-ajustes,
+.camara:not(.camara-lista) .camara-zoom {
+  visibility: hidden;
+}
+
+.icono-rayo { --icono: url("assets/iconos/rayo.svg"); }
+.icono-sol  { --icono: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6'/%3E%3C/svg%3E"); }
+
+/* Flash apagado: rayo tachado, como en la cámara del teléfono. */
+#camara-flash-modo:not(.activo)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 1.6px;
+  border-radius: 1px;
+  background: currentColor;
+  box-shadow: 0 0 0 1px rgba(20, 28, 23, 0.55);
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Flash encendido: rayo dorado. */
+#camara-flash-modo.activo {
+  color: #141C17;
+  background: var(--dorado);
+  border-color: var(--crema);
+}
+
+/* El teléfono no permite controlar el flash desde la web. */
+#camara-flash-modo.no-disponible {
+  opacity: 0.45;
+}
+
+/* Luz ajustada: borde dorado. */
+#camara-sol.ajustado,
+#camara-sol[aria-expanded="true"] {
+  color: var(--dorado);
+  border-color: var(--dorado);
+}
+
+/* Flash de pantalla (frontal): blanco total mientras se captura. */
+.camara-luz {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 6;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.camara-luz.activa {
+  opacity: 1;
+}
+
+/* Control de luz desplegable, bajo la barra superior. */
+.camara-brillo {
+  position: absolute;
+  top: calc(76px + env(safe-area-inset-top));
+  right: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 10px 14px 8px;
+  color: var(--crema);
+  background: rgba(20, 28, 23, 0.62);
+  border: 1px solid rgba(185, 154, 91, 0.6);
+  border-radius: 22px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: aparecer-visor 0.2s ease both;
+}
+
+.camara-brillo-fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.camara-brillo-paso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-family: var(--fuente-texto);
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--crema);
+  background: transparent;
+  border: 1.5px solid rgba(250, 246, 238, 0.55);
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.camara-brillo-paso:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.camara-brillo-puntos {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.camara-brillo-puntos i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(250, 246, 238, 0.35);
+}
+
+.camara-brillo-puntos i.activo {
+  width: 11px;
+  height: 11px;
+  background: var(--dorado);
+  box-shadow: 0 0 0 2px rgba(250, 246, 238, 0.85);
+}
+
+.camara-brillo-nivel {
+  min-width: 2ch;
+  font-family: var(--fuente-texto);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.camara-brillo-pie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--fuente-texto);
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+}
+
+.camara-brillo-tipo {
+  color: rgba(250, 246, 238, 0.75);
+}
+
+.camara-brillo-normal {
+  min-height: 30px;
+  padding: 0 10px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--dorado);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.camara-brillo-normal:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Aviso breve (por ejemplo, flash no disponible). */
+.camara-aviso {
+  position: absolute;
+  top: calc(80px + env(safe-area-inset-top));
+  right: 0;
+  left: 0;
+  z-index: 3;
+  width: max-content;
+  max-width: calc(100% - 40px);
+  margin: 0 auto;
+  padding: 8px 14px;
+  font-family: var(--fuente-texto);
+  font-size: 0.74rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--crema);
+  background: rgba(20, 28, 23, 0.7);
+  border: 1px solid rgba(185, 154, 91, 0.5);
+  border-radius: 16px;
+  pointer-events: none;
+  animation: aparecer-visor 0.2s ease both;
+}
+
+/* Zoom 1× · 2× · 3×, sobre el disparador. */
+.camara-zoom {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 4px;
+  background: rgba(20, 28, 23, 0.45);
+  border: 1px solid rgba(250, 246, 238, 0.25);
+  border-radius: 999px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.camara-zoom-opcion {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 6px;
+  font-family: var(--fuente-texto);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--crema);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.camara-zoom-opcion.activo {
+  color: #141C17;
+  background: var(--crema);
+  box-shadow: 0 0 0 1.5px var(--dorado);
+}
+
+/* Pantallas angostas (320–360 px): todo cabe sin encimarse. */
+@media (max-width: 360px) {
+  .camara-superior {
+    gap: 6px;
+  }
+
+  .camara-superior > #camara-cerrar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .camara-marca {
+    font-size: 1rem;
+  }
+
+  .camara-marca span {
+    font-size: 1.15rem;
+  }
+
+  .camara-ajustes {
+    gap: 6px;
+  }
+
+  .camara-boton-ajuste {
+    width: 40px;
+    height: 40px;
+  }
+}
+
 /* Con la cámara abierta la página de fondo no se desplaza. */
 body.camara-abierta {
   overflow: hidden;
@@ -1512,6 +1806,16 @@ body.camara-abierta {
   /* En horizontal no hay espacio junto a los controles. */
   .camara-creditos {
     display: none;
+  }
+
+  /* Zoom en columna, a la izquierda de los controles. */
+  .camara-zoom {
+    position: absolute;
+    top: 50%;
+    right: 100%;
+    flex-direction: column;
+    margin: 0;
+    transform: translateY(-50%);
   }
 
   .camara-superior {
